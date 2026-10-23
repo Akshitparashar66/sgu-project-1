@@ -130,6 +130,13 @@ class AgentResult(CamelModel):
     status: AgentStatus
     arrival_tick: Optional[int] = None
     movement_profile: str = "standard"
+    # Replay timing, aligned with route_edge_ids (added post-Hour-1 for the
+    # P1 animated replay; defaulted, so older payloads still validate). Edge
+    # i is occupied from edge_entry_ticks[i] through edge_exit_ticks[i]
+    # inclusive. An entry without a matching exit = still on that edge when
+    # the run hit max_ticks.
+    edge_entry_ticks: list[int] = Field(default_factory=list)
+    edge_exit_ticks: list[int] = Field(default_factory=list)
 
 
 class EdgeCongestionResult(CamelModel):

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import time
 import uuid
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 from pydantic import Field
 
@@ -32,6 +32,8 @@ class _AgentState:
     edge_index: int = 0
     ticks_remaining_on_edge: int = 0
     arrival_tick: int | None = None
+    entry_ticks: list[int] = field(default_factory=list)
+    exit_ticks: list[int] = field(default_factory=list)
 
 
 def _active(a: _AgentState) -> bool:
@@ -106,6 +108,7 @@ def simulate(
                 delay_by_edge[edge_id] = delay_by_edge.get(edge_id, 0.0) + max(0.0, effective_s - base_s)
                 ticks_needed = max(1, round((effective_s * multiplier) / params.tick_seconds))
                 a.ticks_remaining_on_edge = ticks_needed
+                a.entry_ticks.append(tick)
                 a.status = (
                     AgentStatus.DELAYED
                     if effective_s > base_s * 1.1
@@ -116,6 +119,7 @@ def simulate(
             if a.ticks_remaining_on_edge > 0:
                 continue
 
+            a.exit_ticks.append(tick)
             a.edge_index += 1
             if a.edge_index < len(a.plan.route_edge_ids):
                 a.ticks_remaining_on_edge = -1
@@ -144,6 +148,7 @@ def simulate(
             id=a.plan.agent_id, origin_zone=a.plan.origin_zone,
             assigned_shelter=a.plan.assigned_shelter, route_edge_ids=a.plan.route_edge_ids,
             status=a.status, arrival_tick=a.arrival_tick, movement_profile=a.plan.movement_profile,
+            edge_entry_ticks=a.entry_ticks, edge_exit_ticks=a.exit_ticks,
         )
         for a in agents
     ]

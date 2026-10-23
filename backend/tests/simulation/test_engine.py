@@ -59,6 +59,48 @@ def test_single_agent_arrives_after_expected_ticks():
     assert result.shelters[0].final_occupied == 1
 
 
+def _two_edge_scenario() -> ScenarioConfig:
+    scenario = _tiny_scenario()
+    scenario.nodes.append(RoadNode(id="N3", lat=0, lon=0))
+    scenario.edges.append(RoadEdge(id="E2", source="N2", target="N3", length_m=100,
+                                   capacity_per_tick=10, base_travel_time_s=60))
+    scenario.shelters[0].connector_node = "N3"
+    return scenario
+
+
+def test_agents_record_when_they_entered_and_left_each_edge():
+    # Replay contract: edge i is occupied from edge_entry_ticks[i] through
+    # edge_exit_ticks[i] inclusive; the next edge is entered on the tick after.
+    scenario = _two_edge_scenario()
+    plans = [AgentPlan(agent_id="A1", origin_zone="Z1", assigned_shelter="S1",
+                        route_edge_ids=["E1", "E2"], movement_profile="standard", distance_m=200)]
+    congestion = FakeCongestionModel({e.id: e for e in scenario.edges})
+    params = SimulationParams(tick_seconds=30, max_ticks=20, random_seed=42)
+
+    result = simulate(scenario, plans, params, congestion, plan_label="baseline")
+
+    agent = result.agents[0]
+    # E1: 90s = 3 ticks (0,1,2). E2: 60s = 2 ticks (3,4). Arrives at tick 4.
+    assert agent.edge_entry_ticks == [0, 3]
+    assert agent.edge_exit_ticks == [2, 4]
+    assert agent.arrival_tick == 4
+
+
+def test_agent_cut_off_by_tick_limit_has_an_entry_without_an_exit():
+    scenario = _two_edge_scenario()
+    plans = [AgentPlan(agent_id="A1", origin_zone="Z1", assigned_shelter="S1",
+                        route_edge_ids=["E1", "E2"], movement_profile="standard", distance_m=200)]
+    congestion = FakeCongestionModel({e.id: e for e in scenario.edges})
+    params = SimulationParams(tick_seconds=30, max_ticks=4, random_seed=42)
+
+    result = simulate(scenario, plans, params, congestion, plan_label="baseline")
+
+    agent = result.agents[0]
+    assert agent.edge_entry_ticks == [0, 3]
+    assert agent.edge_exit_ticks == [2]  # still on E2 when the clock stopped
+    assert agent.status == AgentStatus.UNSERVED
+
+
 def test_agent_with_no_route_is_unserved_immediately():
     scenario = _tiny_scenario()
     plans = [AgentPlan(agent_id="A1", origin_zone="Z1", assigned_shelter=None,

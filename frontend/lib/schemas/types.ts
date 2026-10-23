@@ -84,6 +84,11 @@ export interface AgentResult {
   status: AgentStatus;
   arrivalTick?: number;
   movementProfile: string;
+  // Replay timing, aligned with routeEdgeIds: edge i is occupied from
+  // edgeEntryTicks[i] through edgeExitTicks[i] inclusive. An entry with no
+  // matching exit means the agent was still on that edge at max_ticks.
+  edgeEntryTicks: number[];
+  edgeExitTicks: number[];
 }
 
 export interface EdgeCongestionResult {
