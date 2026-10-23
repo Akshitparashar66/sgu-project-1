@@ -4,6 +4,7 @@ import { useState } from "react";
 
 import { AppShell, type NavId } from "@/components/layout/AppShell";
 import { ComparisonView } from "@/components/views/ComparisonView";
+import { LiveSimulationView } from "@/components/views/LiveSimulationView";
 import { OverviewView } from "@/components/views/OverviewView";
 import { useAegis } from "@/lib/state/useAegis";
 
@@ -25,6 +26,8 @@ export function AegisApp() {
         </div>
       ) : view === "plan-comparison" ? (
         <ComparisonView state={state} actions={actions} />
+      ) : view === "live-simulation" ? (
+        <LiveSimulationView state={state} effectiveScenario={effectiveScenario} actions={actions} />
       ) : (
         <OverviewView
           state={state}

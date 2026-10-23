@@ -23,7 +23,7 @@ function scenario(overrides: Partial<ScenarioConfig> = {}): ScenarioConfig {
 function agents(count: number, fields: Partial<AgentResult>): AgentResult[] {
   return Array.from({ length: count }, (_, i) => ({
     id: `A${i}`, originZone: "Z1", assignedShelter: "S1", routeEdgeIds: ["E1"],
-    status: "arrived", arrivalTick: 4, movementProfile: "standard", ...fields,
+    status: "arrived", arrivalTick: 4, movementProfile: "standard", edgeEntryTicks: [0], edgeExitTicks: [4], ...fields,
   }));
 }
 

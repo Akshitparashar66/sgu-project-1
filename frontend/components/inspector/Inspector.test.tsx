@@ -17,8 +17,8 @@ const run: RunResult = {
   runId: "r", scenarioId: "s", planLabel: "baseline", randomSeed: 42,
   metrics: { evacuatedCount: 2, unservedCount: 0, completionTick: 5, hitTickLimit: false, maxCongestionRatio: 6.6, runtimeMs: 1 },
   agents: [
-    { id: "a", originZone: "Z1", assignedShelter: "S1", routeEdgeIds: ["E3"], status: "arrived", arrivalTick: 5, movementProfile: "standard" },
-    { id: "b", originZone: "Z1", assignedShelter: "S1", routeEdgeIds: ["E3"], status: "arrived", arrivalTick: 5, movementProfile: "standard" },
+    { id: "a", originZone: "Z1", assignedShelter: "S1", routeEdgeIds: ["E3"], status: "arrived", arrivalTick: 5, movementProfile: "standard", edgeEntryTicks: [0], edgeExitTicks: [5] },
+    { id: "b", originZone: "Z1", assignedShelter: "S1", routeEdgeIds: ["E3"], status: "arrived", arrivalTick: 5, movementProfile: "standard", edgeEntryTicks: [0], edgeExitTicks: [5] },
   ],
   shelters: [{ shelterId: "S1", totalCapacity: 250, finalOccupied: 2, rejectedCount: 0 }],
   congestion: [{ edgeId: "E3", peakDemandToCapacity: 6.6, peakTick: 13, totalDelayS: 88065 }],

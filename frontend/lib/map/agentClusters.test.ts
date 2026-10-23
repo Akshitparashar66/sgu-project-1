@@ -12,7 +12,7 @@ const scenario = {
 } as unknown as ScenarioConfig;
 
 function agent(id: string, status: AgentResult["status"], assignedShelter?: string): AgentResult {
-  return { id, originZone: "Z1", assignedShelter, routeEdgeIds: ["E6"], status, movementProfile: "standard" };
+  return { id, originZone: "Z1", assignedShelter, routeEdgeIds: ["E6"], status, movementProfile: "standard", edgeEntryTicks: [], edgeExitTicks: [] };
 }
 
 describe("clusterResolvedAgents", () => {
