@@ -4,6 +4,12 @@ import type { AgentStatus, RoadStatus } from "@/lib/schemas/types";
 // red = danger/closed/full, green = safe/available, slate = idle/unknown.
 // Keep these as the single source of truth — Legend.tsx renders this
 // exact palette, so a change here must be reflected there.
+export const HAZARD_COLOR = "#ef4444";
+// Violet sits outside the status palette on purpose: a population zone is a
+// place, not a state, so it must never read as "safe" or "danger".
+export const ZONE_COLOR = "#a78bfa";
+export const UNAVAILABLE_COLOR = "#64748b";
+
 export function roadColor(status: RoadStatus, congestionRatio: number): string {
   if (status === "closed") return "#ef4444";
   if (status === "restricted") return "#f59e0b";

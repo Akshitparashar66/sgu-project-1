@@ -43,6 +43,16 @@ describe("EvacuationMap", () => {
     expect(screen.getByTestId("polygon")).toBeInTheDocument();
   });
 
+  it("renders a labeled marker per population zone", () => {
+    const scenario = buildScenario();
+    scenario.zones = [{ id: "Z1", name: "Riverside", connectorNode: "N1", evacueeCount: 300, movementProfile: { standard: 1 } }];
+
+    render(<EvacuationMap scenario={scenario} />);
+
+    expect(screen.getAllByTestId("circle-marker")).toHaveLength(2); // 1 shelter + 1 zone
+    expect(screen.getByText(/Riverside · 300 evacuees/)).toBeInTheDocument();
+  });
+
   it("renders the legend as part of the map", () => {
     render(<EvacuationMap scenario={buildScenario()} />);
     expect(screen.getByRole("list", { name: "Map legend" })).toBeInTheDocument();
