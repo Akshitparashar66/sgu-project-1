@@ -80,3 +80,22 @@ def test_optimizer_runs_both_plans_with_the_requested_seed(use_scenario):
 
     assert result["baselineRun"]["randomSeed"] == 7
     assert result["alternativeRun"]["randomSeed"] == 7
+
+
+def test_optimizer_baseline_is_exactly_the_run_simulation_result():
+    # The frontend adopts plan.baselineRun as "the current run"; that is only
+    # honest while it is the same simulation /simulations/run would return.
+    from app.models.schemas import SimulationParams
+    from app.simulation.engine import RunRequest, run_simulation
+
+    params = SimulationParams(tick_seconds=30, max_ticks=240, random_seed=7)
+    direct = run_simulation(RunRequest(scenario_id="scenario_a_normal", closed_edge_ids=["E3"], params=params))
+    planned = generate_alternative_plan(
+        OptimizationRequest(scenario_id="scenario_a_normal", closed_edge_ids=["E3"], random_seed=7)
+    )["baselineRun"]
+
+    direct_dump = direct.model_dump(by_alias=True)
+    for run in (direct_dump, planned):
+        run.pop("runId")
+        run["metrics"].pop("runtimeMs")
+    assert planned == direct_dump

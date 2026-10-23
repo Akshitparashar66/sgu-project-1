@@ -95,6 +95,10 @@ export function aegisReducer(state: AegisState, action: AegisAction): AegisState
       return {
         ...state, status: "completed", busy: null,
         plan: action.plan, comparison: action.comparison, planInputs: action.key,
+        // The optimizer's baseline is the exact run /simulations/run returns for
+        // the same scenario, overrides and seed — so Overview, Live Simulation
+        // and Reports can use it instead of saying "no run yet".
+        ...(action.plan.baselineRun ? { run: action.plan.baselineRun, runInputs: action.key } : {}),
       };
     case "failed":
       return { ...state, status: "error", busy: null, error: action.message };

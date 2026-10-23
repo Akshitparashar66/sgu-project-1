@@ -56,6 +56,19 @@ describe("aegisReducer", () => {
     expect(state.scenario).toBe(scenario);
   });
 
+  it("adopts a plan's baseline as the current run — it is the same simulation /run would return for these inputs", () => {
+    const baselineRun = { runId: "b1", randomSeed: 42 } as RunResult;
+    const state = aegisReducer(loaded(), {
+      type: "planSucceeded",
+      plan: { feasible: false, baselineRun, changes: [], tradeOffs: [] },
+      comparison: null,
+      key: runKey(loaded()),
+    });
+
+    expect(state.run).toBe(baselineRun);
+    expect(isRunStale(state)).toBe(false);
+  });
+
   it("surfaces failures as an error status with the backend's message", () => {
     const state = aegisReducer(loaded(), { type: "failed", message: "Unknown scenario_id 'x'" });
     expect(state.status).toBe("error");
