@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { fetchScenario, runSimulation } from "./client";
+import { ApiError, fetchScenario, runSimulation, validateScenario } from "./client";
 
 beforeEach(() => {
   vi.restoreAllMocks();
@@ -33,6 +33,22 @@ describe("apiFetch error handling", () => {
 
     const [, init] = fetchSpy.mock.calls[0];
     expect(JSON.parse(init!.body as string)).toEqual({ scenarioId: "scenario_a_normal", closedEdgeIds: ["E3"] });
+  });
+
+  it("keeps the backend's field-level validation errors on the thrown error", async () => {
+    vi.spyOn(global, "fetch").mockResolvedValue({
+      ok: false, status: 422,
+      json: async () => ({
+        errorCode: "VALIDATION_ERROR", message: "Scenario has 1 validation error(s)", field: "edges.0.target",
+        errors: [{ field: "edges.0.target", message: "References unknown node 'N99'" }],
+      }),
+    } as Response);
+
+    const error = await validateScenario({}).catch((e: unknown) => e);
+
+    expect(error).toBeInstanceOf(ApiError);
+    expect((error as ApiError).errorCode).toBe("VALIDATION_ERROR");
+    expect((error as ApiError).errors).toEqual([{ field: "edges.0.target", message: "References unknown node 'N99'" }]);
   });
 
   it("reports an unreachable backend in plain words instead of 'Failed to fetch'", async () => {

@@ -1,4 +1,5 @@
 import { formatImprovement, formatPercentDiff } from "@/lib/metrics/format";
+import { COMPUTE_ONLY_METRICS } from "@/lib/metrics/verdict";
 import type { ComparisonResult } from "@/lib/schemas/types";
 
 const OUTCOME = {
@@ -6,10 +7,6 @@ const OUTCOME = {
   worse: { glyph: "▼", className: "text-red-400" },
   unchanged: { glyph: "—", className: "text-slate-400" },
 } as const;
-
-// Reported by the API for transparency, but it measures the computer, not
-// the evacuation — grading it "worse" in red would mislead a planner.
-const COMPUTE_ONLY_METRICS = new Set(["Simulation runtime (ms)"]);
 
 function formatValue(value: number): string {
   return Number.isInteger(value) ? value.toLocaleString() : value.toFixed(2);

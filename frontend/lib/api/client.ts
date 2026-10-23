@@ -1,6 +1,25 @@
 import type { ComparisonResult, RunResult, ScenarioConfig, SimulationParams } from "@/lib/schemas/types";
 
-const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8000";
+export const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8000";
+
+export interface FieldError {
+  field: string | null;
+  message: string;
+}
+
+/** The backend's structured error ({errorCode, message, field, errors?}), kept intact for the UI. */
+export class ApiError extends Error {
+  constructor(
+    message: string,
+    readonly status: number,
+    readonly errorCode: string | null = null,
+    readonly field: string | null = null,
+    readonly errors: FieldError[] = [],
+  ) {
+    super(message);
+    this.name = "ApiError";
+  }
+}
 
 async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
   let response: Response;
@@ -17,7 +36,10 @@ async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
   }
   if (!response.ok) {
     const body = await response.json().catch(() => ({}));
-    throw new Error(body.message ?? `Request to ${path} failed with status ${response.status}`);
+    throw new ApiError(
+      body.message ?? `Request to ${path} failed with status ${response.status}`,
+      response.status, body.errorCode ?? null, body.field ?? null, body.errors ?? [],
+    );
   }
   return response.json() as Promise<T>;
 }
@@ -69,6 +91,16 @@ export const generateAlternativePlan = (
   apiFetch<AlternativePlanResponse>("/api/optimization/plan", {
     method: "POST", body: JSON.stringify(request),
   });
+
+export interface ValidationSummary {
+  valid: true;
+  scenarioId: string;
+  summary: { nodes: number; edges: number; zones: number; shelters: number; evacuees: number; shelterCapacity: number };
+}
+
+/** PRD §10.4 — check a candidate scenario file without saving or running it. Throws ApiError with `errors`. */
+export const validateScenario = (scenario: unknown) =>
+  apiFetch<ValidationSummary>("/api/scenarios/validate", { method: "POST", body: JSON.stringify(scenario) });
 
 export const compareRuns = (baselineRun: RunResult, alternativeRun: RunResult) =>
   apiFetch<ComparisonResult>("/api/simulations/compare", {

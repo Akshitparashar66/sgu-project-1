@@ -63,6 +63,11 @@ export const ArrivalsChart = memo(function ArrivalsChart({ series, total, cursor
   const rows = mergeSeries(series);
   const single = series.length === 1;
   const lastIndex = rows.length - 1;
+  // End labels only when the line ends are clearly apart; colliding labels
+  // are never nudged or stacked — the legend + tooltip carry identity instead.
+  const endValues = series.map((s) => rows[lastIndex]?.[s.id] ?? 0);
+  const minGap = Math.max(total, 1) * 0.06;
+  const endLabels = !single && endValues.every((v, i) => endValues.every((w, j) => i === j || Math.abs(v - w) >= minGap));
 
   return (
     <figure>
@@ -78,7 +83,7 @@ export const ArrivalsChart = memo(function ArrivalsChart({ series, total, cursor
       )}
       <div style={{ height }}>
         <ResponsiveContainer width="100%" height="100%">
-          <ComposedChart data={rows} margin={{ top: 8, right: single ? 12 : 72, bottom: 0, left: 0 }}>
+          <ComposedChart data={rows} margin={{ top: 8, right: endLabels ? 72 : 12, bottom: 0, left: 0 }}>
             <CartesianGrid vertical={false} stroke={GRID} />
             <XAxis
               dataKey="minutes" type="number" domain={[0, "dataMax"]} tickFormatter={formatMinutes}
@@ -111,7 +116,7 @@ export const ArrivalsChart = memo(function ArrivalsChart({ series, total, cursor
                   stroke={s.color} strokeWidth={2} dot={false}
                   activeDot={{ r: 4, stroke: "#0f172a", strokeWidth: 2 }} isAnimationActive={false}
                   label={({ index, x, y }: { index?: number; x?: number | string; y?: number | string }) =>
-                    index === lastIndex ? (
+                    endLabels && index === lastIndex ? (
                       <text key={s.id} x={Number(x) + 8} y={Number(y)} dy={4} fill="#cbd5e1" fontSize={11}>{s.label}</text>
                     ) : <g key={`${s.id}-${index}`} />
                   }
