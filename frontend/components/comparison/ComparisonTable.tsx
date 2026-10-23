@@ -7,6 +7,10 @@ const OUTCOME = {
   unchanged: { glyph: "—", className: "text-slate-400" },
 } as const;
 
+// Reported by the API for transparency, but it measures the computer, not
+// the evacuation — grading it "worse" in red would mislead a planner.
+const COMPUTE_ONLY_METRICS = new Set(["Simulation runtime (ms)"]);
+
 function formatValue(value: number): string {
   return Number.isInteger(value) ? value.toLocaleString() : value.toFixed(2);
 }
@@ -32,19 +36,24 @@ export function ComparisonTable({ comparison }: { comparison: ComparisonResult }
         </thead>
         <tbody>
           {comparison.metrics.map((m) => {
+            const computeOnly = COMPUTE_ONLY_METRICS.has(m.metricName);
             const outcome = formatImprovement(m);
             const style = OUTCOME[outcome];
             return (
-              <tr key={m.metricName} className="border-t border-slate-800">
-                <th scope="row" className="py-2 pr-3 font-normal text-slate-200">{m.metricName}</th>
-                <td className="py-2 pr-3 text-right tabular-nums text-slate-300">{formatValue(m.baselineValue)}</td>
-                <td className="py-2 pr-3 text-right tabular-nums text-slate-100">{formatValue(m.alternativeValue)}</td>
-                <td className="py-2 pr-3 text-right tabular-nums text-slate-300">{formatSigned(m.absoluteDiff)}</td>
-                <td className="py-2 pr-3 text-right tabular-nums text-slate-300">{formatPercentDiff(m)}</td>
-                <td className={`py-2 ${style.className}`}>
-                  <span aria-hidden className="mr-1.5">{style.glyph}</span>
-                  <span>{outcome}</span>
-                </td>
+              <tr key={m.metricName} className={`border-t border-slate-800 ${computeOnly ? "text-slate-500" : ""}`}>
+                <th scope="row" className={`py-2 pr-3 font-normal ${computeOnly ? "" : "text-slate-200"}`}>{m.metricName}</th>
+                <td className="py-2 pr-3 text-right tabular-nums">{formatValue(m.baselineValue)}</td>
+                <td className="py-2 pr-3 text-right tabular-nums">{formatValue(m.alternativeValue)}</td>
+                <td className="py-2 pr-3 text-right tabular-nums">{formatSigned(m.absoluteDiff)}</td>
+                <td className="py-2 pr-3 text-right tabular-nums">{formatPercentDiff(m)}</td>
+                {computeOnly ? (
+                  <td className="py-2 text-xs">compute cost, not a plan outcome</td>
+                ) : (
+                  <td className={`py-2 ${style.className}`}>
+                    <span aria-hidden className="mr-1.5">{style.glyph}</span>
+                    <span>{outcome}</span>
+                  </td>
+                )}
               </tr>
             );
           })}

@@ -1,26 +1,63 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
-
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+/* AEGIS is a dark command-center UI in every color scheme (PRD §4.1). */
+:root {
+  color-scheme: dark;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-geist-sans), system-ui, sans-serif;
 }
+
+/* Leaflet chrome, re-themed to match the navy shell. */
+.leaflet-container {
+  background: #020617;
+  font-family: inherit;
+}
+
+/* Light OSM tiles turned into a dim, desaturated dark basemap so the
+   synthetic road network (the actual subject) stays the brightest thing. */
+.aegis-basemap {
+  filter: invert(1) hue-rotate(180deg) brightness(0.4) contrast(0.85) saturate(0.2);
+}
+
+.leaflet-tooltip {
+  background: rgb(15 23 42 / 0.95);
+  color: #e2e8f0;
+  border: 1px solid #334155;
+  border-radius: 6px;
+  box-shadow: none;
+  font-size: 12px;
+}
+
+.leaflet-tooltip-top::before { border-top-color: #334155; }
+.leaflet-tooltip-bottom::before { border-bottom-color: #334155; }
+.leaflet-tooltip-left::before { border-left-color: #334155; }
+.leaflet-tooltip-right::before { border-right-color: #334155; }
+
+/* Permanent shelter / zone labels: compact, no pointer arrow. */
+.leaflet-tooltip.aegis-label {
+  padding: 1px 6px;
+  font-size: 11px;
+  background: rgb(2 6 23 / 0.8);
+}
+.leaflet-tooltip.aegis-label::before { display: none; }
+
+.leaflet-control-attribution {
+  background: rgb(2 6 23 / 0.7) !important;
+  color: #64748b !important;
+}
+.leaflet-control-attribution a { color: #94a3b8 !important; }
+
+.leaflet-bar a {
+  background: #0f172a;
+  color: #e2e8f0;
+  border-bottom-color: #334155;
+}
+.leaflet-bar a:hover { background: #1e293b; }
+.leaflet-bar a:focus-visible { outline: 2px solid #22d3ee; outline-offset: 1px; }

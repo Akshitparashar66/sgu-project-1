@@ -20,7 +20,7 @@ export function ZoneLayer({ zones, nodeById, selection, onSelect }: LayerContext
         pathOptions={{ color: selected ? "#f8fafc" : ZONE_COLOR, weight: selected ? 3 : 2, fillOpacity: 0.08 }}
         eventHandlers={{ click: () => onSelect?.({ kind: "zone", id: zone.id }) }}
       >
-        <Tooltip direction="left" permanent className="aegis-label">
+        <Tooltip direction="bottom" offset={[0, clusterRadius(zone.evacueeCount)]} permanent className="aegis-label">
           {zone.name} · {zone.evacueeCount} evacuees
         </Tooltip>
       </CircleMarker>

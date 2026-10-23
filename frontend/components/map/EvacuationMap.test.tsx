@@ -4,14 +4,20 @@ import { describe, expect, it, vi } from "vitest";
 import type { ScenarioConfig } from "@/lib/schemas/types";
 import { EvacuationMap } from "./EvacuationMap";
 
+type MockLayerProps = { pathOptions?: { color?: string }; children?: ReactNode };
+
 vi.mock("react-leaflet", () => ({
   MapContainer: ({ children }: { children: ReactNode }) => <div data-testid="map-container">{children}</div>,
   TileLayer: () => <div data-testid="tile-layer" />,
-  Polyline: (props: any) => <div data-testid="polyline" data-color={props.pathOptions?.color} />,
-  Polygon: (props: any) => <div data-testid="polygon" />,
-  CircleMarker: (props: any) => <div data-testid="circle-marker" data-color={props.pathOptions?.color}>{props.children}</div>,
+  Polyline: (props: MockLayerProps) => <div data-testid="polyline" data-color={props.pathOptions?.color} />,
+  Polygon: () => <div data-testid="polygon" />,
+  CircleMarker: (props: MockLayerProps) => <div data-testid="circle-marker" data-color={props.pathOptions?.color}>{props.children}</div>,
   Tooltip: ({ children }: { children: ReactNode }) => <span>{children}</span>,
+  useMap: () => ({ invalidateSize: vi.fn(), fitBounds: vi.fn(), getContainer: () => document.createElement("div") }),
 }));
+
+// jsdom has no ResizeObserver; FitToBounds only needs observe/disconnect to exist.
+globalThis.ResizeObserver ??= class { observe() {} unobserve() {} disconnect() {} } as unknown as typeof ResizeObserver;
 
 function buildScenario(): ScenarioConfig {
   return {

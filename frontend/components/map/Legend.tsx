@@ -38,10 +38,10 @@ export function Legend() {
     <div
       role="list"
       aria-label="Map legend"
-      className="absolute bottom-4 left-4 z-[1000] rounded-lg border border-slate-700 bg-slate-900/90 p-3 text-xs text-slate-200 backdrop-blur"
+      className="absolute bottom-6 left-4 z-[1000] flex max-w-[min(46rem,calc(100%-2rem))] flex-wrap gap-x-4 gap-y-1 rounded-lg border border-slate-700 bg-slate-900/90 px-3 py-2 text-xs text-slate-200 backdrop-blur"
     >
       {LEGEND_ITEMS.map((item) => (
-        <div role="listitem" key={item.label} className="flex items-center gap-2 py-0.5">
+        <div role="listitem" key={item.label} className="flex items-center gap-1.5">
           <span aria-hidden className={`shrink-0 ${SHAPE_CLASS[item.shape]}`} style={swatchStyle(item.shape, item.swatch)} />
           <span>{item.label}</span>
         </div>

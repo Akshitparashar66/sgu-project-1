@@ -27,6 +27,16 @@ describe("ComparisonTable", () => {
     expect(within(rows[2]).getByText("n/a")).toBeInTheDocument();
   });
 
+  it("never grades simulation runtime as a plan outcome", () => {
+    render(<ComparisonTable comparison={{
+      ...comparison,
+      metrics: [{ metricName: "Simulation runtime (ms)", baselineValue: 100, alternativeValue: 110, absoluteDiff: 10, percentDiff: 10, improved: false }],
+    }} />);
+
+    expect(screen.queryByText("worse")).not.toBeInTheDocument();
+    expect(screen.getByText("compute cost, not a plan outcome")).toBeInTheDocument();
+  });
+
   it("shows the comparison's own warnings", () => {
     render(<ComparisonTable comparison={comparison} />);
     expect(screen.getByText(/percentage change is undefined/)).toBeInTheDocument();
