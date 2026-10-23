@@ -77,3 +77,47 @@ def test_restricted_edge_is_also_excluded():
     edges_by_id = {e.id: e for e in scenario.edges}
 
     assert compute_shortest_route(graph, edges_by_id, "N1", "N2") == ["E2", "E3"]
+
+
+def test_hazard_risk_steers_routes_away_from_unsafe_edges_when_times_are_close():
+    # PRD §7.2 objective #1 (avoid unsafe routes): two 2-hop routes N1->N2
+    # with identical travel time; the one through hazardous E1 loses.
+    scenario = ScenarioConfig(
+        id="t", name="t", description="", synthetic=True,
+        nodes=[RoadNode(id=n, lat=0, lon=0) for n in ("N1", "N2", "N3", "N4")],
+        edges=[
+            RoadEdge(id="E1", source="N1", target="N3", length_m=100, capacity_per_tick=10,
+                      base_travel_time_s=60, hazard_risk=0.8),
+            RoadEdge(id="E2", source="N3", target="N2", length_m=100, capacity_per_tick=10, base_travel_time_s=60),
+            RoadEdge(id="E3", source="N1", target="N4", length_m=100, capacity_per_tick=10, base_travel_time_s=60),
+            RoadEdge(id="E4", source="N4", target="N2", length_m=100, capacity_per_tick=10, base_travel_time_s=61),
+        ],
+        zones=[], shelters=[], hazards=[], default_params=SimulationParams(),
+    )
+    graph = build_graph(scenario)
+    edges_by_id = {e.id: e for e in scenario.edges}
+
+    assert compute_shortest_route(graph, edges_by_id, "N1", "N2") == ["E3", "E4"]
+
+
+def test_hazard_penalty_does_not_override_a_much_faster_route():
+    # A hazardous edge that saves far more time than its penalty still wins:
+    # the penalty is a tie-breaker, not a closure.
+    from app.routing.graph import HAZARD_PENALTY_SECONDS
+
+    scenario = ScenarioConfig(
+        id="t", name="t", description="", synthetic=True,
+        nodes=[RoadNode(id=n, lat=0, lon=0) for n in ("N1", "N2", "N3")],
+        edges=[
+            RoadEdge(id="E1", source="N1", target="N2", length_m=100, capacity_per_tick=10,
+                      base_travel_time_s=60, hazard_risk=1.0),
+            RoadEdge(id="E2", source="N1", target="N3", length_m=100, capacity_per_tick=10,
+                      base_travel_time_s=60 + HAZARD_PENALTY_SECONDS),
+            RoadEdge(id="E3", source="N3", target="N2", length_m=100, capacity_per_tick=10, base_travel_time_s=60),
+        ],
+        zones=[], shelters=[], hazards=[], default_params=SimulationParams(),
+    )
+    graph = build_graph(scenario)
+    edges_by_id = {e.id: e for e in scenario.edges}
+
+    assert compute_shortest_route(graph, edges_by_id, "N1", "N2") == ["E1"]
