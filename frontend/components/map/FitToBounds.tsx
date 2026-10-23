@@ -11,13 +11,14 @@ import { useMap } from "react-leaflet";
  */
 export function FitToBounds({ bounds, options }: { bounds: LatLngBoundsExpression; options: FitBoundsOptions }) {
   const map = useMap();
-  const key = JSON.stringify(bounds);
+  const key = JSON.stringify([bounds, options]);
 
   useEffect(() => {
     const refit = () => {
       map.invalidateSize();
       map.fitBounds(bounds, options);
     };
+    // Fires once on observe (covers a padding change), then on every container resize.
     const observer = new ResizeObserver(refit);
     observer.observe(map.getContainer());
     return () => observer.disconnect();

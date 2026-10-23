@@ -1,7 +1,7 @@
 "use client";
 
 import type { FitBoundsOptions } from "leaflet";
-import type { ReactNode } from "react";
+import { type ReactNode, useEffect, useRef, useState } from "react";
 import { MapContainer, TileLayer } from "react-leaflet";
 
 import type { AgentResult, ScenarioConfig } from "@/lib/schemas/types";
@@ -16,8 +16,15 @@ import { Legend } from "./Legend";
 
 export type { MapSelection } from "./layers/types";
 
-// Room for shelter labels (drawn to the right) and the legend strip along the bottom.
-const FIT_OPTIONS = { paddingTopLeft: [60, 50], paddingBottomRight: [200, 110] } as const satisfies FitBoundsOptions;
+// Room for zone labels (centred under the lowest/leftmost nodes, ~50 px below
+// the node) and shelter labels (drawn to the right). The legend's own height
+// is measured and added at the bottom, since it wraps on narrower maps.
+const LABEL_ALLOWANCE_PX = 60;
+const LEGEND_OFFSET_PX = 24; // the legend sits bottom-6
+
+function fitOptions(legendHeight: number): FitBoundsOptions {
+  return { paddingTopLeft: [110, 50], paddingBottomRight: [200, legendHeight + LEGEND_OFFSET_PX + LABEL_ALLOWANCE_PX] };
+}
 
 export interface EvacuationMapProps {
   scenario: ScenarioConfig;
@@ -42,11 +49,22 @@ export function EvacuationMap({
     : [[0, 0], [0, 0]];
   const context = { nodeById, selection, onSelect };
 
+  const legendRef = useRef<HTMLDivElement>(null);
+  const [legendHeight, setLegendHeight] = useState(50);
+  useEffect(() => {
+    const legend = legendRef.current;
+    if (!legend) return;
+    const observer = new ResizeObserver(() => setLegendHeight(legend.offsetHeight));
+    observer.observe(legend);
+    return () => observer.disconnect();
+  }, []);
+  const fit = fitOptions(legendHeight);
+
   return (
     <div className="relative h-full w-full">
       {/* zoomSnap 0.25: whole-level zoom steps leave the small network tiny after a refit. */}
-      <MapContainer bounds={bounds} boundsOptions={FIT_OPTIONS} zoomSnap={0.25} className="h-full w-full bg-slate-950">
-        <FitToBounds bounds={bounds} options={FIT_OPTIONS} />
+      <MapContainer bounds={bounds} boundsOptions={fit} zoomSnap={0.25} className="h-full w-full bg-slate-950">
+        <FitToBounds bounds={bounds} options={fit} />
         {/* Standard OSM tiles, darkened in globals.css (.aegis-basemap) — no API key needed. */}
         <TileLayer
           url="https://tile.openstreetmap.org/{z}/{x}/{y}.png"
@@ -64,7 +82,7 @@ export function EvacuationMap({
       <p className="pointer-events-none absolute left-16 top-3 z-[1000] rounded-md bg-slate-950/80 px-2 py-1 text-[11px] text-slate-400">
         Schematic synthetic road network · basemap for orientation only
       </p>
-      <Legend />
+      <Legend ref={legendRef} />
     </div>
   );
 }

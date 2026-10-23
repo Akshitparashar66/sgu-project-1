@@ -1,3 +1,5 @@
+import type { Ref } from "react";
+
 import { agentMarkerColor, HAZARD_COLOR, roadColor, shelterFillColor, ZONE_COLOR } from "@/lib/map/styling";
 
 type Shape = "line" | "line-dashed" | "circle" | "ring" | "area";
@@ -33,9 +35,10 @@ const SHAPE_CLASS: Record<Shape, string> = {
   "area": "h-3 w-4 rounded-sm",
 };
 
-export function Legend() {
+export function Legend({ ref }: { ref?: Ref<HTMLDivElement> }) {
   return (
     <div
+      ref={ref}
       role="list"
       aria-label="Map legend"
       className="absolute bottom-6 left-4 z-[1000] flex max-w-[min(46rem,calc(100%-2rem))] flex-wrap gap-x-4 gap-y-1 rounded-lg border border-slate-700 bg-slate-900/90 px-3 py-2 text-xs text-slate-200 backdrop-blur"
