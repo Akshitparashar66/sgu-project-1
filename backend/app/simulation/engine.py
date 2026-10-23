@@ -5,9 +5,12 @@ import uuid
 from dataclasses import dataclass
 
 from app.models.schemas import (
-    AgentPlan, AgentResult, AgentStatus, EdgeCongestionResult, RunMetrics,
+    AgentPlan, AgentResult, AgentStatus, CamelModel, EdgeCongestionResult, RunMetrics,
     RunResult, ScenarioConfig, ShelterResult, SimulationParams,
 )
+from app.routing.assignment import assign_shelters_and_routes
+from app.routing.congestion import CongestionModel
+from app.routing.graph import build_graph
 from app.simulation.protocols import CongestionModelProtocol
 
 # Multiplier applied to an edge's effective travel time by movement profile.
@@ -175,3 +178,30 @@ def simulate(
         random_seed=params.random_seed, metrics=metrics, agents=agent_results,
         shelters=shelter_results, congestion=congestion_results, warnings=warnings,
     )
+
+
+class RunRequest(CamelModel):
+    # CamelModel (not plain BaseModel) so the frontend can POST
+    # {"scenarioId": "...", "planLabel": "baseline"} directly — see master
+    # plan §3.1's note on CamelModel and §3.3's "already camelCase" note.
+    scenario_id: str
+    plan_label: str = "baseline"
+    params: SimulationParams | None = None
+
+
+def run_simulation(request: RunRequest) -> RunResult:
+    # Local import: scenario_store only imports app.models.schemas, so there
+    # is no circular-import risk; keeping it local lets tests monkeypatch
+    # app.services.scenario_store.get_scenario.
+    from app.services.scenario_store import get_scenario
+
+    scenario = get_scenario(request.scenario_id)
+    if scenario is None:
+        raise ValueError(f"Unknown scenario_id '{request.scenario_id}'")
+
+    params = request.params or scenario.default_params
+    graph = build_graph(scenario)
+    plans = assign_shelters_and_routes(scenario, graph, params.random_seed)
+    congestion_model = CongestionModel(scenario, params)
+
+    return simulate(scenario, plans, params, congestion_model, plan_label=request.plan_label)
