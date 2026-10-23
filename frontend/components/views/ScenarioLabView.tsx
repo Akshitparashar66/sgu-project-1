@@ -3,7 +3,7 @@
 import { FileCheck2, Loader2, Play, Undo2 } from "lucide-react";
 import { useState } from "react";
 
-import { WhatIfAssistant } from "@/components/ai/WhatIfAssistant";
+import { InstantEstimate } from "@/components/scenario/InstantEstimate";
 import { Card, Page, rowClass, tableClass, theadClass } from "@/components/ui/Card";
 import { ApiError, type FieldError, validateScenario, type ValidationSummary } from "@/lib/api/client";
 import { hasOverrides } from "@/lib/scenario/overrides";
@@ -47,7 +47,7 @@ export function ScenarioLabView({ state, effectiveScenario: scenario, actions, o
         </>
       }
     >
-      <WhatIfAssistant state={state} scenario={scenario} actions={actions} />
+      <InstantEstimate state={state} scenario={scenario} />
 
       <Card title={`Roads (${scenario.edges.filter((e) => e.status === "closed").length} of ${scenario.edges.length} closed)`}>
         <table className={tableClass}>

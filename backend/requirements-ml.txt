@@ -1,0 +1,5 @@
+# Only for retraining the instant-estimate model (scripts/train_surrogate.py).
+# The API itself reads the exported JSON model and doesn't need these.
+-r requirements.txt
+scikit-learn>=1.5
+numpy>=2

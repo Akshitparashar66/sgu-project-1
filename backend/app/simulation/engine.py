@@ -43,6 +43,10 @@ def _active(a: _AgentState) -> bool:
     return a.status in (AgentStatus.WAITING, AgentStatus.MOVING, AgentStatus.DELAYED)
 
 
+def _not_yet_departed(a: _AgentState, tick: int) -> bool:
+    return a.status == AgentStatus.WAITING and tick < a.plan.departure_tick
+
+
 def simulate(
     scenario: ScenarioConfig,
     plans: list[AgentPlan],
@@ -85,7 +89,7 @@ def simulate(
 
         entering_by_edge: dict[str, int] = {}
         for a in agents:
-            if not _active(a):
+            if not _active(a) or _not_yet_departed(a, tick):
                 continue
             about_to_enter = a.status == AgentStatus.WAITING or a.ticks_remaining_on_edge <= 0
             if about_to_enter:
@@ -93,7 +97,7 @@ def simulate(
                 entering_by_edge[edge_id] = entering_by_edge.get(edge_id, 0) + 1
 
         for a in agents:
-            if not _active(a):
+            if not _active(a) or _not_yet_departed(a, tick):
                 continue
 
             if a.status == AgentStatus.WAITING:
@@ -152,6 +156,7 @@ def simulate(
             id=a.plan.agent_id, origin_zone=a.plan.origin_zone,
             assigned_shelter=a.plan.assigned_shelter, route_edge_ids=a.plan.route_edge_ids,
             status=a.status, arrival_tick=a.arrival_tick, movement_profile=a.plan.movement_profile,
+            departure_tick=a.plan.departure_tick,
             edge_entry_ticks=a.entry_ticks, edge_exit_ticks=a.exit_ticks,
         )
         for a in agents

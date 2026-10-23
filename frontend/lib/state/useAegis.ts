@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useReducer, useRef } from "react";
 
 import type { MapSelection } from "@/components/map/layers/types";
 import { compareRuns, fetchScenario, fetchScenarios, generateAlternativePlan, runSimulation } from "@/lib/api/client";
-import { applyOverrides, type OverrideChanges } from "@/lib/scenario/overrides";
+import { applyOverrides } from "@/lib/scenario/overrides";
 import { aegisReducer, type AegisState, initialAegisState, runKey } from "./aegisReducer";
 
 const DEFAULT_SCENARIO_ID = "scenario_a_normal";
@@ -93,7 +93,6 @@ export function useAegis() {
     toggleEdge: (edgeId: string) => dispatch({ type: "toggleEdge", edgeId }),
     toggleShelter: (shelterId: string) => dispatch({ type: "toggleShelter", shelterId }),
     clearOverrides: () => dispatch({ type: "clearOverrides" }),
-    applyChanges: (changes: OverrideChanges) => dispatch({ type: "applyChanges", changes }),
     setSeed: (seed: number) => dispatch({ type: "setSeed", seed }),
     select: (selection: MapSelection) => dispatch({ type: "select", selection }),
     reset: () => dispatch({ type: "reset" }),

@@ -86,6 +86,8 @@ export interface AgentResult {
   status: AgentStatus;
   arrivalTick?: number;
   movementProfile: string;
+  /** Staged evacuation: waits at its zone until this tick (0 = leaves at once). */
+  departureTick?: number;
   // Replay timing, aligned with routeEdgeIds: edge i is occupied from
   // edgeEntryTicks[i] through edgeExitTicks[i] inclusive. An entry with no
   // matching exit means the agent was still on that edge at max_ticks.

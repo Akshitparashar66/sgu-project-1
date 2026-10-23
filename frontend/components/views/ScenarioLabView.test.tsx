@@ -5,6 +5,11 @@ import { initialAegisState } from "@/lib/state/aegisReducer";
 import type { AegisActions } from "@/lib/state/useAegis";
 import { ScenarioLabView } from "./ScenarioLabView";
 
+vi.mock("@/lib/api/client", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/api/client")>()),
+  predictOutcome: vi.fn(() => new Promise(() => {})),
+}));
+
 const scenario: ScenarioConfig = {
   id: "s", name: "Normal", description: "", synthetic: true,
   nodes: [{ id: "N1", lat: 0, lon: 0 }, { id: "N2", lat: 0, lon: 0 }],
@@ -18,7 +23,7 @@ const scenario: ScenarioConfig = {
 function stubActions(): AegisActions {
   return {
     loadScenario: vi.fn(), run: vi.fn(), generatePlan: vi.fn(), toggleEdge: vi.fn(), toggleShelter: vi.fn(),
-    clearOverrides: vi.fn(), applyChanges: vi.fn(), setSeed: vi.fn(), select: vi.fn(), reset: vi.fn(),
+    clearOverrides: vi.fn(), setSeed: vi.fn(), select: vi.fn(), reset: vi.fn(),
   };
 }
 

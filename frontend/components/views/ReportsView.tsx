@@ -2,7 +2,6 @@
 
 import { Download, Printer } from "lucide-react";
 
-import { BriefingCard } from "@/components/ai/BriefingCard";
 import { FindingsList } from "@/components/insights/FindingsList";
 import { Card, Page, rowClass, tableClass, theadClass } from "@/components/ui/Card";
 import { buildRecommendations } from "@/lib/insights/recommendations";
@@ -79,7 +78,6 @@ export function ReportsView({ state, effectiveScenario: scenario }: { state: Aeg
         <Kpi label="Peak congestion" value={`${run.metrics.maxCongestionRatio.toFixed(2)}×`} />
       </dl>
 
-      {!stale && <BriefingCard state={state} />}
 
       {!stale && (
         <Card title="Findings">

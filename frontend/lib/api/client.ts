@@ -76,6 +76,24 @@ export interface PlanChange {
   reason: string;
 }
 
+/** One line of the optimized plan: a group of evacuees, where they go, by which roads, and when they leave. */
+export interface EvacuationOrder {
+  zoneId: string;
+  movementProfile: string;
+  people: number;
+  shelterId: string;
+  routeEdgeIds: string[];
+  departureMinute: number;
+}
+
+export interface PlanSearchInfo {
+  method: string;
+  iterations: number;
+  plansEvaluated: number;
+  blockSize: number;
+  runtimeMs: number;
+}
+
 export interface AlternativePlanResponse {
   feasible: boolean;
   reason?: string;
@@ -83,6 +101,8 @@ export interface AlternativePlanResponse {
   alternativeRun?: RunResult;
   changes: PlanChange[];
   tradeOffs: string[];
+  orders?: EvacuationOrder[];
+  search?: PlanSearchInfo;
 }
 
 export const generateAlternativePlan = (
@@ -107,34 +127,37 @@ export const compareRuns = (baselineRun: RunResult, alternativeRun: RunResult) =
     method: "POST", body: JSON.stringify({ baselineRun, alternativeRun }),
   });
 
-/** Whether the backend has a Gemini API key. Without them both AI features use their offline fallback. */
-export const fetchAiStatus = () => apiFetch<{ configured: boolean; provider: string; model: string; fallbackModels: string[] }>("/api/ai/status");
-
-export interface Briefing {
-  /** "gemini": written by Gemini and every number checked against the run; "template": fixed-sentence summary. */
-  source: "gemini" | "template";
-  text: string;
-  facts: Record<string, unknown>;
-  warnings: string[];
+export interface TargetError {
+  mae: number;
+  p90AbsError: number;
+  labMae: number;
+  labP90AbsError: number;
+  r2: number | null;
 }
 
-/** Briefs the run for these exact inputs (the backend re-runs it deterministically with the same seed). */
-export const requestBriefing = (
-  request: { scenarioId: string; randomSeed: number; includePlan?: boolean } & ScenarioOverrides
-) => apiFetch<Briefing>("/api/ai/briefing", { method: "POST", body: JSON.stringify(request) });
-
-export interface WhatIfProposal {
-  /** "gemini": interpreted by Gemini; "keywords": offline id/name matching. */
-  source: "gemini" | "keywords";
-  closeEdgeIds: string[];
-  reopenEdgeIds: string[];
-  unavailableShelterIds: string[];
-  restoreShelterIds: string[];
-  interpretation: string;
-  /** Parts of the question that can't be expressed as road/shelter changes. */
-  unmatched: string[];
-  warnings: string[];
+export interface SurrogateCard {
+  method: string;
+  trainedOn: string;
+  samples: number;
+  testSamples: number;
+  labTestSamples: number;
+  trainedDate: string;
+  testMetrics: Record<"clearanceMinutes" | "unservedShare" | "peakCongestion", TargetError>;
 }
 
-export const interpretWhatIf = (request: { scenarioId: string; question: string } & ScenarioOverrides) =>
-  apiFetch<WhatIfProposal>("/api/ai/what-if", { method: "POST", body: JSON.stringify(request) });
+export type OutcomeEstimate =
+  | { available: false; reason: string }
+  | {
+      available: true;
+      clearanceMinutes: number;
+      clearanceAtTimeLimit: boolean;
+      unservedCount: number;
+      peakCongestion: number;
+      evacuees: number;
+      runtimeMs: number;
+      model: SurrogateCard;
+    };
+
+/** Instant machine-learning estimate of a run's headline numbers; running the simulation gives the real ones. */
+export const predictOutcome = (request: { scenarioId: string } & ScenarioOverrides, signal?: AbortSignal) =>
+  apiFetch<OutcomeEstimate>("/api/predict", { method: "POST", body: JSON.stringify(request), signal });

@@ -42,6 +42,15 @@ function frame(replay: ReturnType<typeof buildReplay>, t: number, id: string) {
 }
 
 describe("replay", () => {
+  it("holds a staged evacuee at its zone as waiting until its wave leaves", () => {
+    const staged = agent({ id: "staged", departureTick: 10, edgeEntryTicks: [10, 12], edgeExitTicks: [11, 13], arrivalTick: 13 });
+    const replay = buildReplay(scenario, run([staged]));
+
+    expect(frame(replay, 5, "staged")).toMatchObject({ lat: 0, lon: 0, status: "waiting" });
+    expect(countsAt(replay, 5).waiting).toBe(1);
+    expect(frame(replay, 10, "staged").status).toBe("moving");
+  });
+
   it("moves an agent along its edges in walking order, even over a reversed edge", () => {
     const replay = buildReplay(scenario, run([onTime]));
 
@@ -91,7 +100,7 @@ describe("replay", () => {
   it("counts states and shelter occupancy at a tick", () => {
     const replay = buildReplay(scenario, run([onTime, jammed, unassigned]));
 
-    expect(countsAt(replay, 3)).toEqual({ arrived: 1, moving: 0, delayed: 1, unserved: 1 });
+    expect(countsAt(replay, 3)).toEqual({ waiting: 0, arrived: 1, moving: 0, delayed: 1, unserved: 1 });
     expect(occupancyAt(replay, 3)).toEqual({ S1: 1 });
     expect(occupancyAt(replay, 5)).toEqual({ S1: 2 });
   });

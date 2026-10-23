@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { ScenarioConfig } from "@/lib/schemas/types";
-import { applyOverrides, hasOverrides, mergeOverrides, toggleId } from "./overrides";
+import { applyOverrides, hasOverrides, toggleId } from "./overrides";
 
 const scenario = {
   edges: [{ id: "E1", status: "open" }, { id: "E2", status: "open" }],
@@ -31,19 +31,5 @@ describe("toggleId / hasOverrides", () => {
   it("reports whether any what-if change is active", () => {
     expect(hasOverrides({ closedEdgeIds: [], unavailableShelterIds: [] })).toBe(false);
     expect(hasOverrides({ closedEdgeIds: ["E1"], unavailableShelterIds: [] })).toBe(true);
-  });
-});
-
-describe("mergeOverrides", () => {
-  const none = { closeEdgeIds: [], reopenEdgeIds: [], unavailableShelterIds: [], restoreShelterIds: [] };
-
-  it("adds closures without duplicating ones already made", () => {
-    expect(mergeOverrides({ closedEdgeIds: ["E1"], unavailableShelterIds: [] }, { ...none, closeEdgeIds: ["E1", "E3"], unavailableShelterIds: ["S1"] }))
-      .toEqual({ closedEdgeIds: ["E1", "E3"], unavailableShelterIds: ["S1"] });
-  });
-
-  it("reopens roads and restores shelters", () => {
-    expect(mergeOverrides({ closedEdgeIds: ["E1", "E3"], unavailableShelterIds: ["S2"] }, { ...none, reopenEdgeIds: ["E3"], restoreShelterIds: ["S2"] }))
-      .toEqual({ closedEdgeIds: ["E1"], unavailableShelterIds: [] });
   });
 });

@@ -5,7 +5,8 @@ Simulate the risk. Engineer the escape.
 AEGIS is a prototype evacuation-planning and simulation tool (PS 021). Planners load a
 scenario, simulate every evacuee moving through a road network to shelters, find the
 congestion points and shelter shortfalls, try what-if changes (close a road, lose a
-shelter), and compare the baseline plan against a computed alternative.
+shelter) with an instant estimate of the result, and compare the baseline plan against an
+optimized one.
 
 It is **not** a real emergency-response system — see "What this is not" below.
 
@@ -26,16 +27,14 @@ npm install
 npm run dev  # http://localhost:3000
 ```
 
-**AI features (optional, Google Gemini):** put a Google AI Studio key in
-`backend/.env.local` (git-ignored, loaded at startup):
+**Instant-estimate model:** the trained model ships in `backend/app/ml/surrogate_model.json`,
+so nothing extra is needed to use it. To retrain it (e.g. after changing the engine or the
+scenarios), which takes about 4 minutes:
+```bash
+cd backend
+pip install -r requirements-ml.txt   # scikit-learn + numpy, training only
+python scripts/train_surrogate.py
 ```
-GEMINI_API_KEY=your-key
-```
-Without it, everything still works: briefings use a fixed-sentence summary and what-if
-questions are matched by keyword. Models are tried in order — `gemini-3.5-flash`, then
-`gemini-3.6-flash`, then `gemini-3.5-flash-lite` — so an overloaded model doesn't break the
-demo; override with a comma-separated `AEGIS_AI_MODEL`. `AEGIS_AI_DISABLED=1` forces the
-offline path.
 
 The frontend calls the API at `http://localhost:8000` (override with
 `NEXT_PUBLIC_API_BASE_URL`). The backend allows CORS from `localhost:3000`; add other
@@ -55,22 +54,26 @@ cd frontend && npm test             # vitest: formatting, replay math, component
   capacity-ratio congestion model, and never lets a shelter exceed capacity.
 - **A what-if lab.** Close any road or take any shelter offline (on the map or in the
   Scenario Lab) and re-run. Changes apply to a copy; scenario files are never modified.
-- **A rule-based alternative-plan optimizer** (not machine learning). It load-balances
-  shelter assignment across each evacuee's two nearest shelters, runs both plans through the
-  same engine with the same seed, and says plainly when it cannot improve on the baseline.
+- **A search-based plan optimizer.** Simulated annealing decides, for each group of evacuees,
+  which shelter to use, which of up to three routes to walk, and when to leave (staged waves
+  every 5 minutes, up to +30). Each candidate plan is scored by simulating it: fewest
+  unserved first, then earliest clearance, then shortest average time to shelter, with hazard
+  exposure charged like extra walking time. About 1,000 candidate plans are checked in 2–3 s
+  using a group-level copy of the engine that returns exactly the engine's numbers (tested).
+  The winning plan is re-run on the real engine, shown as evacuation orders
+  ("Now: 240 from Hindon Riverside to the School Camp via E1, E2, E3"), and replayable.
+  It says plainly when it can't beat the baseline.
 - **An animated replay** of every evacuee, tick by tick, with live shelter occupancy and an
   arrivals-over-time chart — so bottlenecks are visible, not just reported.
 - **Findings and reports** derived only from real run numbers: capacity shortfalls,
   bottleneck roads with routed headcount and delay, shelters that turned people away,
   hazard-exposed routes. Exportable as JSON.
-- **Two optional Gemini-powered helpers**, layered on top of the simulator, never replacing it:
-  - *AI briefing* (Reports, Plan Comparison): Gemini rewrites the run's own results as a short
-    plain-language brief. Every number in the brief is checked against the run; if one isn't
-    backed by the data, the brief is discarded for a fixed-sentence summary.
-  - *Ask a what-if* (Scenario Lab): type "what if the Gaur Cascades link floods and the school
-    camp can't open?" and Gemini maps it to road and shelter ids from the scenario. You see
-    the proposed changes and apply them yourself; the numbers still come only from running
-    the simulation.
+- **Instant estimates (machine learning).** While you close roads or take shelters offline
+  in the Scenario Lab, a gradient-boosted tree model estimates clearance time, unserved count
+  and peak congestion in about 20 ms, before anything is run. It was trained on 6,400
+  simulated what-ifs, and each estimate shows the range that covered 90% of its held-out
+  test cases (about ±3 min clearance on Scenario Lab-style cases). After a run, the real
+  numbers appear next to it.
 - **Six evacuation-on-foot scenarios in Raj Nagar Extension, Ghaziabad** (synthetic people,
   real streets): normal conditions (A), a closed critical road (B), a shelter-capacity
   shortage (C), a Hindon river flood (D), a night evacuation with many slow walkers (E) and a
@@ -84,11 +87,11 @@ cd frontend && npm test             # vitest: formatting, replay math, component
   and must never be used that way.
 - **Not validated against real human behavior.** Movement speeds, congestion penalties and
   the optimizer's heuristic are documented, simplified models — see `docs/ASSUMPTIONS.md`.
-- **Not predicted by AI.** Routing is Dijkstra; the optimizer is a greedy load-balancing
-  heuristic. Gemini only writes briefings from finished results and translates typed
-  questions into road/shelter changes; it never produces a simulation number. Nothing is
-  "AI-predicted" in the trained-model sense, and we
-  don't describe them that way.
+- **Not trained on real evacuations.** The estimate model learns this simulator from its own
+  synthetic runs. Its error is measured against the simulation, which says nothing about
+  real-world accuracy. Every number in a report or comparison comes from the simulation.
+- **Not guaranteed optimal.** The optimizer is a heuristic search: it finds much better plans
+  than the baseline, but not a proven optimum, and a different seed can find a different plan.
 - **Not connected to any live feed.** All scenario data is synthetic and loaded from
   `data/scenarios/*.json`. Roads follow real Raj Nagar Extension streets (NH-9 Bypass, Gaur
   Cascades Rd, Anandibai Joshi Rd and local lanes, from OpenStreetMap) with their real
@@ -102,9 +105,12 @@ backend/
   app/models/schemas.py        shared Pydantic contracts (mirrored in frontend/lib/schemas/types.ts)
   app/simulation/engine.py     tick loop: agent states, shelter admission, run_simulation()
   app/routing/                 graph + Dijkstra, capacity-aware assignment, congestion model
-  app/optimization/planner.py  alternative-plan heuristic with an honest feasibility verdict
+  app/simulation/cohort.py     the engine's rules applied to groups (exact, ~100x faster) for search and training
+  app/optimization/search.py   simulated-annealing plan optimizer (shelter, route, departure wave)
+  app/optimization/planner.py  baseline vs optimized plan, verdict, trade-offs, evacuation orders
+  app/ml/                      instant-estimate features, model (JSON trees) and prediction
   app/services/                scenario loading, what-if overrides, validation, run comparison
-  app/ai/                      optional Gemini helpers: grounded briefings, what-if parsing
+  scripts/train_surrogate.py   generates simulated what-ifs and trains the estimate model
   app/api/                     FastAPI routes and structured errors
   tests/                       unit tests per module + tests/acceptance (end-to-end via the API)
 frontend/
@@ -127,10 +133,8 @@ The full shared API/data contracts and the workstream plans this was built from 
 | GET | `/api/scenarios`, `/api/scenarios/{id}` | list / load scenarios |
 | POST | `/api/scenarios/validate` | check a scenario file; field-level errors |
 | POST | `/api/simulations/run` | run a scenario (optional `closedEdgeIds`, `unavailableShelterIds`, `params`) |
-| POST | `/api/optimization/plan` | baseline vs alternative plan, with verdict and trade-offs |
+| POST | `/api/optimization/plan` | baseline vs optimized plan: verdict, trade-offs, evacuation orders |
 | POST | `/api/simulations/compare` | metric-by-metric comparison of two runs |
-| GET | `/api/ai/status` | whether Gemini is configured, and which models |
-| POST | `/api/ai/briefing` | plain-language briefing of a run (or of the plan comparison with `includePlan`) |
-| POST | `/api/ai/what-if` | typed what-if question → proposed road/shelter changes |
+| POST | `/api/predict` | instant estimate for a scenario plus what-if changes, with the model's test error |
 
 Every error returns `{errorCode, message, field}` — never a bare stack trace.

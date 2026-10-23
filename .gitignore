@@ -16,3 +16,6 @@ next-env.d.ts
 .DS_Store
 Thumbs.db
 
+
+# browser-automation logs and snapshots
+.playwright-mcp/

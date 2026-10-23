@@ -1,7 +1,7 @@
 "use client";
 
-import { CircleCheck, Pause, Play, RotateCcw, Route, TriangleAlert, UserX } from "lucide-react";
-import { useMemo } from "react";
+import { CircleCheck, Hourglass, Pause, Play, RotateCcw, Route, TriangleAlert, UserX } from "lucide-react";
+import { type ReactNode, useMemo, useState } from "react";
 
 import { ArrivalsChart } from "@/components/charts/ArrivalsChart";
 import { ShelterMeters } from "@/components/live/ShelterMeters";
@@ -11,7 +11,7 @@ import { formatCompletionTick } from "@/lib/metrics/format";
 import { arrivalsSeries, buildReplay, countsAt, occupancyAt } from "@/lib/replay/replay";
 import { PLAYBACK_SPEEDS, usePlayback } from "@/lib/replay/usePlayback";
 import type { RunResult, ScenarioConfig } from "@/lib/schemas/types";
-import { type AegisState, isRunStale } from "@/lib/state/aegisReducer";
+import { type AegisState, isPlanStale, isRunStale } from "@/lib/state/aegisReducer";
 import type { AegisActions } from "@/lib/state/useAegis";
 
 interface LiveSimulationViewProps {
@@ -38,11 +38,34 @@ export function LiveSimulationView({ state, effectiveScenario, actions }: LiveSi
       </div>
     );
   }
-  // Keyed on the run so a new run starts a fresh replay at tick 0.
-  return <LivePlayer key={state.run.runId} run={state.run} scenario={effectiveScenario} stale={isRunStale(state)} />;
+  return <LiveReplay state={state} run={state.run} scenario={effectiveScenario} />;
 }
 
-function LivePlayer({ run, scenario, stale }: { run: RunResult; scenario: ScenarioConfig; stale: boolean }) {
+/** Replays the current run, or the optimized plan when one exists for the current setup. */
+function LiveReplay({ state, run: baseline, scenario }: { state: AegisState; run: RunResult; scenario: ScenarioConfig }) {
+  const optimized = state.plan?.feasible && !isPlanStale(state) ? state.plan.alternativeRun ?? null : null;
+  const [showOptimized, setShowOptimized] = useState(false);
+  const run = showOptimized && optimized ? optimized : baseline;
+  const picker = optimized && (
+    <div role="group" aria-label="Plan to replay" className="flex rounded-md border border-slate-200 text-xs">
+      {([["Baseline", false], ["Optimized plan", true]] as const).map(([label, value]) => (
+        <button
+          key={label}
+          type="button"
+          aria-pressed={showOptimized === value}
+          onClick={() => setShowOptimized(value)}
+          className={`px-2.5 py-1.5 ${showOptimized === value ? "bg-blue-600 text-white" : "text-slate-700 hover:bg-slate-100"}`}
+        >
+          {label}
+        </button>
+      ))}
+    </div>
+  );
+  // Keyed on the run so switching plans or a new run starts a fresh replay at tick 0.
+  return <LivePlayer key={run.runId} run={run} scenario={scenario} stale={run === baseline && isRunStale(state)} picker={picker || null} />;
+}
+
+function LivePlayer({ run, scenario, stale, picker }: { run: RunResult; scenario: ScenarioConfig; stale: boolean; picker: ReactNode }) {
   const replay = useMemo(() => buildReplay(scenario, run), [scenario, run]);
   const { tickSeconds } = scenario.defaultParams;
   const { t, playing, speed, setSpeed, seek, toggle } = usePlayback(replay.lastTick);
@@ -56,6 +79,7 @@ function LivePlayer({ run, scenario, stale }: { run: RunResult; scenario: Scenar
     [run, tickSeconds, replay.lastTick],
   );
   const total = run.agents.length;
+  const staged = useMemo(() => run.agents.some((a) => (a.departureTick ?? 0) > 0), [run.agents]);
   const congestion = useMemo(
     () => Object.fromEntries(run.congestion.map((c) => [c.edgeId, c.peakDemandToCapacity])),
     [run.congestion],
@@ -100,6 +124,7 @@ function LivePlayer({ run, scenario, stale }: { run: RunResult; scenario: Scenar
             aria-valuetext={`Tick ${tick}, ${formatCompletionTick(tick, false, tickSeconds)}`}
             className="min-w-40 flex-1 accent-blue-600"
           />
+          {picker}
           <span className="whitespace-nowrap text-right text-sm tabular-nums text-slate-700">
             T+{formatCompletionTick(tick, false, tickSeconds)} <span className="text-slate-500">· tick {tick}/{replay.lastTick}</span>
           </span>
@@ -122,6 +147,7 @@ function LivePlayer({ run, scenario, stale }: { run: RunResult; scenario: Scenar
           <Count icon={Route} label="Moving" value={counts.moving} color={agentMarkerColor("moving")} />
           <Count icon={TriangleAlert} label="Delayed in congestion" value={counts.delayed} color={agentMarkerColor("delayed")} />
           <Count icon={UserX} label="Unserved" value={counts.unserved} color={agentMarkerColor("unserved")} />
+          {staged && <Count icon={Hourglass} label="Waiting for their wave" value={counts.waiting} color={agentMarkerColor("waiting")} />}
         </dl>
         <section>
           <h2 className="mb-2 text-xs uppercase tracking-wide text-slate-500">Shelters</h2>

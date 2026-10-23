@@ -6,7 +6,7 @@ describe("Legend", () => {
   it("lists every road/shelter/agent state so color is never the only signal (PRD §12.3)", () => {
     render(<Legend />);
     expect(screen.getByRole("list", { name: "Map legend" })).toBeInTheDocument();
-    expect(screen.getAllByRole("listitem")).toHaveLength(11);
+    expect(screen.getAllByRole("listitem")).toHaveLength(12);
     expect(screen.getByText("Closed road")).toBeInTheDocument();
     expect(screen.getByText("Hazard zone")).toBeInTheDocument();
     expect(screen.getByText("Population zone")).toBeInTheDocument();

@@ -1,7 +1,7 @@
 import type { SimulationStatus } from "@/components/layout/AppShell";
 import type { MapSelection } from "@/components/map/layers/types";
 import type { AlternativePlanResponse, ScenarioSummary } from "@/lib/api/client";
-import { mergeOverrides, NO_OVERRIDES, type OverrideChanges, type Overrides, toggleId } from "@/lib/scenario/overrides";
+import { NO_OVERRIDES, type Overrides, toggleId } from "@/lib/scenario/overrides";
 import type { ComparisonResult, RunResult, ScenarioConfig } from "@/lib/schemas/types";
 
 export interface AegisState {
@@ -32,7 +32,6 @@ export type AegisAction =
   | { type: "toggleEdge"; edgeId: string }
   | { type: "toggleShelter"; shelterId: string }
   | { type: "clearOverrides" }
-  | { type: "applyChanges"; changes: OverrideChanges }
   | { type: "setSeed"; seed: number }
   | { type: "select"; selection: MapSelection }
   | { type: "reset" };
@@ -112,8 +111,6 @@ export function aegisReducer(state: AegisState, action: AegisAction): AegisState
       };
     case "clearOverrides":
       return { ...state, overrides: NO_OVERRIDES };
-    case "applyChanges":
-      return { ...state, overrides: mergeOverrides(state.overrides, action.changes) };
     case "setSeed":
       return { ...state, seed: action.seed };
     case "select":

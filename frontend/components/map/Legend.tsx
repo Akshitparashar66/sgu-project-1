@@ -13,6 +13,7 @@ const LEGEND_ITEMS: { label: string; swatch: string; shape: Shape }[] = [
   { label: "Shelter — available", swatch: shelterFillColor(0, 100), shape: "circle" },
   { label: "Shelter — near capacity", swatch: shelterFillColor(85, 100), shape: "circle" },
   { label: "Shelter — full", swatch: shelterFillColor(100, 100), shape: "circle" },
+  { label: "Agent — waiting to leave", swatch: agentMarkerColor("waiting"), shape: "circle" },
   { label: "Agent — moving", swatch: agentMarkerColor("moving"), shape: "circle" },
   { label: "Agent — arrived", swatch: agentMarkerColor("arrived"), shape: "circle" },
   { label: "Agent — unserved", swatch: agentMarkerColor("unserved"), shape: "circle" },

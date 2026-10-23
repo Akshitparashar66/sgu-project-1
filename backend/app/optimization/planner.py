@@ -1,13 +1,15 @@
 from __future__ import annotations
 
+import time
 import uuid
 
 from pydantic import Field
 
-from app.models.schemas import AgentPlan, CamelModel, RunMetrics, ScenarioConfig
-from app.routing.assignment import assign_shelters_and_routes, build_demand_units
+from app.models.schemas import CamelModel, RunMetrics, RunResult, ScenarioConfig, SimulationParams
+from app.optimization.search import ITERATIONS, mean_hazard_ticks, optimize_plan, plan_score
+from app.routing.assignment import assign_shelters_and_routes
 from app.routing.congestion import CongestionModel
-from app.routing.graph import build_graph, compute_shortest_route
+from app.routing.graph import build_graph
 from app.services.scenario_overrides import apply_overrides
 from app.simulation.engine import simulate
 
@@ -20,54 +22,6 @@ class OptimizationRequest(CamelModel):
     # computed for the scenario the planner is actually looking at.
     closed_edge_ids: list[str] = Field(default_factory=list)
     unavailable_shelter_ids: list[str] = Field(default_factory=list)
-
-
-def _k_nearest_balanced_assignment(
-    scenario: ScenarioConfig, graph, random_seed: int, k: int = 2
-) -> list[AgentPlan]:
-    """Alternative heuristic (PRD §7.3 steps 5-6): instead of always
-    picking the single nearest reachable shelter, each demand unit picks
-    the LEAST-LOADED shelter (highest remaining-capacity ratio) among its
-    k nearest reachable ones. Spreads load instead of piling everyone
-    onto the closest shelter until it's full."""
-    edges_by_id = {e.id: e for e in scenario.edges}
-    remaining = {s.id: s.total_capacity - s.occupied for s in scenario.shelters}
-    total = {s.id: s.total_capacity for s in scenario.shelters}
-    route_cache: dict[tuple[str, str], list[str] | None] = {}
-
-    def route(zone_node: str, shelter_node: str) -> list[str] | None:
-        key = (zone_node, shelter_node)
-        if key not in route_cache:
-            route_cache[key] = compute_shortest_route(graph, edges_by_id, zone_node, shelter_node)
-        return route_cache[key]
-
-    # Same seeded demand order as the baseline assignment, so plan i here
-    # and plan i there describe the same evacuee (generate_alternative_plan
-    # zips the two lists to report reassignments).
-    plans: list[AgentPlan] = []
-    for i, (zone, profile) in enumerate(build_demand_units(scenario, random_seed)):
-        candidates = []
-        for shelter in scenario.shelters:
-            if not shelter.available or remaining.get(shelter.id, 0) <= 0:
-                continue
-            r = route(zone.connector_node, shelter.connector_node)
-            if r is not None:
-                distance = sum(edges_by_id[e].length_m for e in r)
-                candidates.append((distance, shelter.id, r))
-        candidates.sort(key=lambda c: c[0])
-        top_k = candidates[:k]
-        if top_k:
-            top_k.sort(key=lambda c: remaining[c[1]] / total[c[1]], reverse=True)
-            distance, shelter_id, r = top_k[0]
-            remaining[shelter_id] -= 1
-            plans.append(AgentPlan(agent_id=f"{zone.id}-alt-{i}", origin_zone=zone.id,
-                                     assigned_shelter=shelter_id, route_edge_ids=r,
-                                     movement_profile=profile, distance_m=distance))
-        else:
-            plans.append(AgentPlan(agent_id=f"{zone.id}-alt-{i}", origin_zone=zone.id,
-                                     assigned_shelter=None, route_edge_ids=[], movement_profile=profile,
-                                     distance_m=0.0))
-    return plans
 
 
 def generate_alternative_plan(request: OptimizationRequest) -> dict:
@@ -85,7 +39,7 @@ def generate_alternative_plan(request: OptimizationRequest) -> dict:
     scenario = get_scenario(request.scenario_id)
     if scenario is None:
         return {"feasible": False, "reason": f"Unknown scenario_id '{request.scenario_id}'",
-                "changes": [], "tradeOffs": []}
+                "changes": [], "tradeOffs": [], "orders": []}
     scenario = apply_overrides(scenario, request.closed_edge_ids, request.unavailable_shelter_ids)
 
     graph = build_graph(scenario)
@@ -97,42 +51,58 @@ def generate_alternative_plan(request: OptimizationRequest) -> dict:
     baseline_result = simulate(scenario, baseline_plans, params,
                                  CongestionModel(scenario, params), plan_label="baseline")
 
-    alt_plans = _k_nearest_balanced_assignment(scenario, graph, request.random_seed)
-    alt_result = simulate(scenario, alt_plans, params,
+    started = time.perf_counter()
+    search = optimize_plan(scenario, graph, params, request.random_seed)
+    search_ms = (time.perf_counter() - started) * 1000
+    # The search scores candidates with the cohort simulation; the plan it
+    # returns is re-run on the real engine, and only that run is reported.
+    alt_result = simulate(scenario, search.plans, params,
                             CongestionModel(scenario, params), plan_label="alternative")
 
-    improved_unserved = alt_result.metrics.unserved_count < baseline_result.metrics.unserved_count
-    improved_congestion = alt_result.metrics.max_congestion_ratio < baseline_result.metrics.max_congestion_ratio
-    not_worse_unserved = alt_result.metrics.unserved_count <= baseline_result.metrics.unserved_count
+    base, alt = baseline_result.metrics, alt_result.metrics
+    search_info = {
+        "method": "simulated annealing",
+        "iterations": ITERATIONS,
+        "plansEvaluated": search.evaluations,
+        "blockSize": search.block_size,
+        "runtimeMs": round(search_ms),
+    }
+    orders = [
+        {"zoneId": o.zone_id, "movementProfile": o.movement_profile, "people": o.people,
+         "shelterId": o.shelter_id, "routeEdgeIds": list(o.route_edge_ids),
+         "departureMinute": o.departure_tick * params.tick_seconds / 60}
+        for o in search.orders
+    ]
+    improved = (alt.unserved_count <= base.unserved_count
+                and _run_score(scenario, alt_result, params) < _run_score(scenario, baseline_result, params))
 
-    if not (not_worse_unserved and (improved_unserved or improved_congestion)):
+    if not improved:
         return {
             "feasible": False,
             "reason": (
-                f"Load-balanced reassignment did not improve on the baseline: "
-                f"unserved {alt_result.metrics.unserved_count} vs baseline "
-                f"{baseline_result.metrics.unserved_count}, peak congestion "
-                f"{alt_result.metrics.max_congestion_ratio:.2f} vs baseline "
-                f"{baseline_result.metrics.max_congestion_ratio:.2f}."
+                f"The optimizer did not improve on the baseline after evaluating {search.evaluations} plans: "
+                f"unserved {alt.unserved_count} vs baseline {base.unserved_count}, "
+                f"{_completion_trade_off(base, alt, params)}."
             ),
             # Both runs are still returned so the UI can show the evidence
             # behind the verdict; the candidate is labeled, never promoted.
             "baselineRun": baseline_result.model_dump(by_alias=True),
             "alternativeRun": alt_result.model_dump(by_alias=True),
-            "changes": [], "tradeOffs": [],
+            "changes": [], "tradeOffs": [], "orders": orders, "search": search_info,
         }
 
     changes = []
-    for alt_plan, base_plan in zip(alt_plans, baseline_plans):
+    for alt_plan, base_plan in zip(search.plans, baseline_plans):
         if alt_plan.assigned_shelter != base_plan.assigned_shelter:
             changes.append({
                 "agentId": alt_plan.agent_id,
                 "originZone": alt_plan.origin_zone,
                 "oldShelter": base_plan.assigned_shelter,
                 "newShelter": alt_plan.assigned_shelter,
-                "reason": "reassigned to balance shelter load",
+                "reason": "reassigned by the plan optimizer",
             })
 
+    staged = [p.departure_tick for p in search.plans if p.departure_tick > 0]
     return {
         "feasible": True,
         "runId": str(uuid.uuid4()),
@@ -140,20 +110,51 @@ def generate_alternative_plan(request: OptimizationRequest) -> dict:
         "baselineRun": baseline_result.model_dump(by_alias=True),
         "alternativeRun": alt_result.model_dump(by_alias=True),
         "changes": changes,
+        "orders": orders,
+        "search": search_info,
         "tradeOffs": [
-            f"{len(changes)} of {len(alt_plans)} agents reassigned to a different shelter",
-            f"unserved: {baseline_result.metrics.unserved_count} -> {alt_result.metrics.unserved_count}",
-            f"peak congestion ratio: {baseline_result.metrics.max_congestion_ratio:.2f} -> "
-            f"{alt_result.metrics.max_congestion_ratio:.2f}",
-            _completion_trade_off(baseline_result.metrics, alt_result.metrics),
+            f"{len(changes)} of {len(search.plans)} evacuees go to a different shelter",
+            (f"{len(staged)} evacuees leave in later waves (up to +{_minutes(max(staged), params)} min)"
+             if staged else "everyone leaves at once, as in the baseline"),
+            f"unserved: {base.unserved_count} -> {alt.unserved_count}",
+            _completion_trade_off(base, alt, params),
+            f"average time to shelter: {_minutes(_mean_arrival(baseline_result), params)} -> "
+            f"{_minutes(_mean_arrival(alt_result), params)} min",
+            f"peak congestion ratio: {base.max_congestion_ratio:.2f} -> {alt.max_congestion_ratio:.2f}",
+            f"evacuees routed over hazard-risk roads: {_on_hazard_roads(scenario, baseline_result)} -> "
+            f"{_on_hazard_roads(scenario, alt_result)}",
         ],
     }
 
 
-def _completion_trade_off(baseline: RunMetrics, alternative: RunMetrics) -> str:
-    """The feasibility verdict only weighs unserved count and peak
-    congestion, so always spell out what happened to completion time —
-    a congestion win that costs time must be visible, not implied away."""
-    if baseline.completion_tick is None or alternative.completion_tick is None:
-        return "completion time: not comparable (a run hit its tick limit)"
-    return f"completion tick: {baseline.completion_tick} -> {alternative.completion_tick}"
+def _mean_arrival(run: RunResult) -> float:
+    ticks = [a.arrival_tick for a in run.agents if a.arrival_tick is not None]
+    return sum(ticks) / len(ticks) if ticks else 0.0
+
+
+def _run_score(scenario: ScenarioConfig, run: RunResult, params: SimulationParams) -> float:
+    """The optimizer's objective, computed from a real engine run."""
+    routes = [(tuple(a.route_edge_ids), 1) for a in run.agents if a.route_edge_ids]
+    m = run.metrics
+    return plan_score(m.unserved_count, m.completion_tick, _mean_arrival(run), m.max_congestion_ratio,
+                      params.max_ticks, mean_hazard_ticks(scenario, routes, params.tick_seconds))
+
+
+def _on_hazard_roads(scenario: ScenarioConfig, run: RunResult) -> int:
+    risky = {e.id for e in scenario.edges if e.hazard_risk > 0}
+    return sum(1 for a in run.agents if risky.intersection(a.route_edge_ids))
+
+
+def _minutes(ticks: float, params: SimulationParams) -> str:
+    return f"{ticks * params.tick_seconds / 60:.1f}".removesuffix(".0")
+
+
+def _completion_trade_off(baseline: RunMetrics, alternative: RunMetrics, params: SimulationParams) -> str:
+    """Always spell out what happened to clearance time, including when a
+    run hit its tick limit and the two can't be compared."""
+    def clearance(m: RunMetrics) -> str:
+        if m.completion_tick is None:
+            return f"not finished within the {_minutes(params.max_ticks, params)} min limit"
+        return f"{_minutes(m.completion_tick, params)} min"
+
+    return f"clearance time: {clearance(baseline)} -> {clearance(alternative)}"

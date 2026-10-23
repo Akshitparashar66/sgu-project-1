@@ -34,7 +34,8 @@ export interface AgentFrame {
   id: string;
   lat: number;
   lon: number;
-  status: Exclude<AgentStatus, "waiting">;
+  /** "waiting": at its zone until its departure wave (staged plans only). */
+  status: AgentStatus;
 }
 
 /** Precompute each agent's legs (in walking order — roads are undirected) once per run. */
@@ -103,10 +104,13 @@ function frameFor(track: AgentTrack, t: number, lastTick: number, jitter: boolea
   // Leg i covers t in (entry - 1, exit]: progress reaches 1 exactly at its exit tick.
   const leg = track.legs.find((l) => t > l.entry - 1 && (l.exit === null || t <= l.exit));
   if (!leg) {
-    // Finished every leg without being admitted (shelter full), or before departure.
-    const end = t <= track.legs[0].entry - 1 ? track.origin : track.legs[track.legs.length - 1].to;
-    const status = t <= track.legs[0].entry - 1 ? "moving" : "unserved";
-    return { id: track.id, lat: end[0], lon: end[1], status };
+    // Before departure (staged plans hold groups at their zone), or finished
+    // every leg without being admitted (shelter full).
+    if (t <= track.legs[0].entry - 1) {
+      return { id: track.id, lat: track.origin[0], lon: track.origin[1], status: "waiting" };
+    }
+    const [lat, lon] = track.legs[track.legs.length - 1].to;
+    return { id: track.id, lat, lon, status: "unserved" };
   }
 
   const elapsed = t - leg.entry + 1;
@@ -134,7 +138,7 @@ export function framesAt(replay: Replay, t: number, { jitter = true }: { jitter?
 }
 
 export function countsAt(replay: Replay, t: number): Record<AgentFrame["status"], number> {
-  const counts = { arrived: 0, moving: 0, delayed: 0, unserved: 0 };
+  const counts = { waiting: 0, arrived: 0, moving: 0, delayed: 0, unserved: 0 };
   for (const frame of framesAt(replay, t, { jitter: false })) counts[frame.status] += 1;
   return counts;
 }

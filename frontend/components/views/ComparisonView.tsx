@@ -2,7 +2,6 @@
 
 import { CircleCheck, GitCompareArrows, Loader2, TriangleAlert } from "lucide-react";
 
-import { BriefingCard } from "@/components/ai/BriefingCard";
 import { ArrivalsChart } from "@/components/charts/ArrivalsChart";
 import { ComparisonTable } from "@/components/comparison/ComparisonTable";
 import { Card, Page, rowClass, tableClass, theadClass } from "@/components/ui/Card";
@@ -10,6 +9,7 @@ import { formatOccupancy } from "@/lib/metrics/format";
 import { summarizeReassignments } from "@/lib/metrics/reassignments";
 import { verdictSummary } from "@/lib/metrics/verdict";
 import { arrivalsSeries } from "@/lib/replay/replay";
+import type { EvacuationOrder } from "@/lib/api/client";
 import type { ScenarioConfig } from "@/lib/schemas/types";
 import { type AegisState, isPlanStale } from "@/lib/state/aegisReducer";
 import type { AegisActions } from "@/lib/state/useAegis";
@@ -32,9 +32,9 @@ export function ComparisonView({ state, effectiveScenario, actions }: {
       title="Plan comparison"
       intro={
         <>
-          <strong className="font-medium text-slate-700">Baseline</strong>: every evacuee goes to the nearest reachable shelter with space.{" "}
-          <strong className="font-medium text-slate-700">Alternative</strong>: each picks the least-loaded of its 2 nearest shelters.
-          Both run through the same simulation engine with the same seed. This is a documented heuristic, not a trained model.
+          <strong className="font-medium text-slate-700">Baseline</strong>: everyone leaves at once for the nearest reachable shelter with space.{" "}
+          <strong className="font-medium text-slate-700">Optimized plan</strong>: a search (simulated annealing) over which shelter each group goes to,
+          by which road, and when it leaves, scored by the simulation itself. The plan it finds is re-run on the same engine with the same seed.
         </>
       }
       actions={
@@ -88,7 +88,17 @@ export function ComparisonView({ state, effectiveScenario, actions }: {
         </div>
       )}
 
-      {plan?.alternativeRun && !stale && <BriefingCard state={state} includePlan />}
+      {plan?.feasible && plan.orders && plan.orders.length > 0 && (
+        <EvacuationOrders orders={plan.orders} scenario={effectiveScenario} />
+      )}
+
+      {plan?.search && (
+        <p className="text-xs text-slate-500">
+          The optimizer evaluated {plan.search.plansEvaluated.toLocaleString()} candidate plans
+          ({plan.search.iterations.toLocaleString()} {plan.search.method} steps, groups of up to {plan.search.blockSize} people)
+          in {(plan.search.runtimeMs / 1000).toFixed(1)} s.
+        </p>
+      )}
 
       {comparison && (
         <Card title="Metric by metric">
@@ -147,5 +157,57 @@ export function ComparisonView({ state, effectiveScenario, actions }: {
         </Card>
       )}
     </Page>
+  );
+}
+
+/** The optimized plan as orders a coordinator could read out, wave by wave. */
+export function EvacuationOrders({ orders, scenario }: { orders: EvacuationOrder[]; scenario: ScenarioConfig }) {
+  const zoneName = (id: string) => scenario.zones.find((z) => z.id === id)?.name ?? id;
+  const shelterName = (id: string) => scenario.shelters.find((s) => s.id === id)?.name ?? id;
+  const nodeLabel = (id: string) => scenario.nodes.find((n) => n.id === id)?.label ?? id;
+  const via = (order: EvacuationOrder) => {
+    // Walk the route from the zone so each step names the junction reached.
+    let at = scenario.zones.find((z) => z.id === order.zoneId)?.connectorNode;
+    return order.routeEdgeIds.map((edgeId) => {
+      const edge = scenario.edges.find((e) => e.id === edgeId);
+      if (!edge || !at) return edgeId;
+      at = edge.source === at ? edge.target : edge.source;
+      return `${edgeId} to ${nodeLabel(at)}`;
+    }).join("; ");
+  };
+  const waves = [...new Set(orders.map((o) => o.departureMinute))].sort((a, b) => a - b);
+
+  return (
+    <Card title="Evacuation orders">
+      <table className={tableClass}>
+        <thead className={theadClass}>
+          <tr>
+            <th scope="col" className="py-2 font-medium">Leave at</th>
+            <th scope="col" className="py-2 font-medium">From</th>
+            <th scope="col" className="py-2 text-right font-medium">People</th>
+            <th scope="col" className="py-2 pl-4 font-medium">To shelter</th>
+            <th scope="col" className="py-2 font-medium">Route</th>
+          </tr>
+        </thead>
+        <tbody>
+          {waves.flatMap((minute) =>
+            orders.filter((o) => o.departureMinute === minute).map((o, i) => (
+              <tr key={`${minute}-${o.zoneId}-${o.movementProfile}-${o.shelterId}-${o.routeEdgeIds.join()}`} className={rowClass}>
+                <th scope="row" className="py-2 align-top font-medium tabular-nums text-slate-800">
+                  {i === 0 ? (minute === 0 ? "Now" : `+${minute} min`) : <span className="sr-only">{minute === 0 ? "Now" : `+${minute} min`}</span>}
+                </th>
+                <td className="py-2 align-top text-slate-700">
+                  {zoneName(o.zoneId)}
+                  {o.movementProfile !== "standard" && <span className="text-slate-500"> · {o.movementProfile.replace(/_/g, " ")}</span>}
+                </td>
+                <td className="py-2 text-right align-top tabular-nums text-slate-900">{o.people}</td>
+                <td className="py-2 pl-4 align-top text-slate-700">{shelterName(o.shelterId)}</td>
+                <td className="py-2 align-top text-xs text-slate-500" title={via(o)}>{o.routeEdgeIds.join(" → ")}</td>
+              </tr>
+            )),
+          )}
+        </tbody>
+      </table>
+    </Card>
   );
 }

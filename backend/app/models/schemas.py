@@ -124,6 +124,9 @@ class AgentPlan(CamelModel):
     route_edge_ids: list[str] = Field(default_factory=list)  # [] if assigned_shelter is None
     movement_profile: str = "standard"  # key into the zone's movement_profile dict
     distance_m: float = 0.0  # sum of route_edge_ids' length_m, for reference/debugging
+    # Staged evacuation: the agent waits at its zone until this tick. 0 = leaves
+    # at once (every baseline plan); only the plan optimizer staggers departures.
+    departure_tick: int = Field(default=0, ge=0)
 
 
 class AgentResult(CamelModel):
@@ -134,6 +137,7 @@ class AgentResult(CamelModel):
     status: AgentStatus
     arrival_tick: Optional[int] = None
     movement_profile: str = "standard"
+    departure_tick: int = 0
     # Replay timing, aligned with route_edge_ids (added post-Hour-1 for the
     # P1 animated replay; defaulted, so older payloads still validate). Edge
     # i is occupied from edge_entry_ticks[i] through edge_exit_ticks[i]
