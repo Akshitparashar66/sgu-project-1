@@ -3,4 +3,4 @@ uvicorn[standard]>=0.30
 pydantic>=2.7
 networkx>=3.3
 pytest>=8
-httpx>=0.27
+httpx2  # TestClient transport (Starlette >=1.9 deprecates plain httpx)
