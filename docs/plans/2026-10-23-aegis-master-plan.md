@@ -1,12 +1,9 @@
 # AEGIS Master Execution Plan
 
-> **For agentic workers:** This master plan is the entry point. Each of the
-> six per-workstream plans in this same folder
-> (`2026-10-23-aegis-member{1-6}-*.md`) is a standalone implementation plan —
-> use `superpowers:executing-plans` or `superpowers:subagent-driven-development`
-> to run each one inside that member's own Claude Code / Antigravity session.
-> This file defines what must exist *before* those six plans can run in
-> parallel without merge hell.
+> This master plan is the entry point. Each of the six per-workstream plans
+> in this same folder (`2026-10-23-aegis-member{1-6}-*.md`) is a standalone
+> implementation plan owned by one team member. This file defines what must
+> exist *before* those six plans can run in parallel without merge hell.
 
 **Goal:** Ship a working AEGIS prototype (PS 021) in a 24–30 hour hackathon
 window with 6 people working in parallel, without the six workstreams only
@@ -642,26 +639,19 @@ confirmed working (see Member 6's plan).
 
 ---
 
-## 5. Tool assignment: Claude Code vs. Antigravity
+## 5. Workstream setup
 
-Both tools can drive either side of the stack, but each has a sweet spot —
-assign by where that sweet spot lands, not arbitrarily:
+Each person works in their own clone of the same repo, on their own feature
+branch (`member1-sim-engine`, `member2-routing`, etc.). Nobody shares a
+working copy — six people editing one checkout is how you get the "six
+independent modules that only meet at the end" failure mode the PRD
+explicitly warns about (§17).
 
-| Workstream | Tool | Why |
-|---|---|---|
-| Member 1 — Simulation engine | **Claude Code** | Pure logic, no UI. Tight `pytest` red/green loops run fastest from a terminal agent. |
-| Member 2 — Routing & optimization | **Claude Code** | Same reason — NetworkX, Dijkstra, the heuristic optimizer are all unit-testable without a browser. |
-| Member 3 — Map & visualization | **Antigravity** | Needs constant visual verification (does the hazard polygon actually render, is the legend readable, do agent markers animate). Antigravity's browser-verification loop (screenshot → compare → fix) is built for exactly this. |
-| Member 4 — Dashboard & UX | **Antigravity** | Same reason — this is Tailwind layout and component polish, judged by eye. |
-| Member 5 — Backend & integration | **Claude Code** | FastAPI wiring, Pydantic validation, CORS, error handling — terminal-first work, plus this person runs the cross-stack smoke tests at each sync checkpoint. |
-| Member 6 — QA, metrics, pitch | **Claude Code** for the acceptance-test suite; a **docs/slide artifact** (not an IDE) for the pitch deck itself | Test automation is terminal work; the pitch deck is a presentation artifact, not code. |
-
-**Practical setup:** each person opens their own Claude Code terminal
-session *or* Antigravity workspace pointed at their own clone of the same
-repo, on their own feature branch (`member1-sim-engine`,
-`member2-routing`, etc.). Nobody shares a live session — six people in one
-IDE session is how you get the "six independent modules that only meet at
-the end" failure mode the PRD explicitly warns about (§17).
+Members 1, 2 and 5 work test-first from the terminal (`pytest` red/green
+loops). Members 3 and 4 are judged by eye: check the map and dashboard in
+the browser after every step (screenshot → compare → fix), not only with the
+automated tests. Member 6 owns the acceptance suite and builds the pitch deck
+separately once the demo works.
 
 ---
 
@@ -705,6 +695,5 @@ Hand each person their numbered file:
 Each of those six files follows the same pattern: fully-worked Task 1 (the
 piece that unblocks the vertical slice, with real code, real test, run
 command), then a checklist of the remaining PRD-mapped tasks at
-acceptance-criteria granularity so the person's own Claude Code / Antigravity
-session can flesh out the implementation against the PRD + this plan's
+acceptance-criteria granularity so each person can flesh out the implementation against the PRD + this plan's
 contracts.

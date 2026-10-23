@@ -48,7 +48,7 @@ def test_unavailable_shelter_receives_nobody():
     assert all(a.assigned_shelter != "S1" for a in result.agents)
     s1 = next(s for s in result.shelters if s.shelter_id == "S1")
     assert s1.final_occupied == 0
-    assert result.metrics.unserved_count == 250  # S1's 250 places are gone; S2+S3 hold 500 of 750
+    assert result.metrics.unserved_count == 300  # S1's 600 places are gone; S2+S3 hold 1,200 of 1,500
 
 
 def test_optimizer_honours_the_same_overrides():

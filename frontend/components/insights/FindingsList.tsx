@@ -3,10 +3,10 @@ import { CircleCheck, Info, OctagonAlert, TriangleAlert } from "lucide-react";
 import type { Recommendation, Severity } from "@/lib/insights/recommendations";
 
 const SEVERITY: Record<Severity, { icon: typeof Info; label: string; className: string }> = {
-  critical: { icon: OctagonAlert, label: "Critical", className: "border-red-500/30 bg-red-500/5 text-red-300" },
-  warning: { icon: TriangleAlert, label: "Warning", className: "border-amber-500/30 bg-amber-500/5 text-amber-300" },
-  info: { icon: Info, label: "Note", className: "border-cyan-500/30 bg-cyan-500/5 text-cyan-300" },
-  ok: { icon: CircleCheck, label: "OK", className: "border-green-500/30 bg-green-500/5 text-green-300" },
+  critical: { icon: OctagonAlert, label: "Critical", className: "border-red-200 bg-red-50/60 text-red-700" },
+  warning: { icon: TriangleAlert, label: "Warning", className: "border-amber-200 bg-amber-50/60 text-amber-800" },
+  info: { icon: Info, label: "Note", className: "border-blue-200 bg-blue-50/60 text-blue-700" },
+  ok: { icon: CircleCheck, label: "OK", className: "border-green-200 bg-green-50/60 text-green-800" },
 };
 
 export function FindingsList({ recommendations }: { recommendations: Recommendation[] }) {
@@ -16,7 +16,7 @@ export function FindingsList({ recommendations }: { recommendations: Recommendat
         const style = SEVERITY[rec.severity];
         const Icon = style.icon;
         return (
-          <li key={rec.id} className={`rounded-md border p-2.5 ${style.className}`}>
+          <li key={rec.id} className={`relative rounded-md border p-2.5 ${style.className}`}>
             <div className="flex items-start gap-2">
               <Icon size={15} aria-hidden className="mt-0.5 shrink-0" />
               <div>
@@ -24,7 +24,7 @@ export function FindingsList({ recommendations }: { recommendations: Recommendat
                   <span className="sr-only">{style.label}: </span>
                   {rec.title}
                 </p>
-                <p className="mt-0.5 text-xs leading-relaxed text-slate-400">{rec.detail}</p>
+                <p className="mt-0.5 text-xs leading-relaxed text-slate-500">{rec.detail}</p>
               </div>
             </div>
           </li>

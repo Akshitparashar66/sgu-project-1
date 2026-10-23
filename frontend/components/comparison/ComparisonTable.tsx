@@ -3,9 +3,9 @@ import { COMPUTE_ONLY_METRICS } from "@/lib/metrics/verdict";
 import type { ComparisonResult } from "@/lib/schemas/types";
 
 const OUTCOME = {
-  improved: { glyph: "▲", className: "text-green-400" },
-  worse: { glyph: "▼", className: "text-red-400" },
-  unchanged: { glyph: "—", className: "text-slate-400" },
+  improved: { glyph: "▲", className: "text-green-700" },
+  worse: { glyph: "▼", className: "text-red-600" },
+  unchanged: { glyph: "—", className: "text-slate-500" },
 } as const;
 
 function formatValue(value: number): string {
@@ -37,8 +37,8 @@ export function ComparisonTable({ comparison }: { comparison: ComparisonResult }
             const outcome = formatImprovement(m);
             const style = OUTCOME[outcome];
             return (
-              <tr key={m.metricName} className={`border-t border-slate-800 ${computeOnly ? "text-slate-500" : ""}`}>
-                <th scope="row" className={`py-2 pr-3 font-normal ${computeOnly ? "" : "text-slate-200"}`}>{m.metricName}</th>
+              <tr key={m.metricName} className={`border-t border-slate-200 ${computeOnly ? "text-slate-500" : ""}`}>
+                <th scope="row" className={`py-2 pr-3 font-normal ${computeOnly ? "" : "text-slate-800"}`}>{m.metricName}</th>
                 <td className="py-2 pr-3 text-right tabular-nums">{formatValue(m.baselineValue)}</td>
                 <td className="py-2 pr-3 text-right tabular-nums">{formatValue(m.alternativeValue)}</td>
                 <td className="py-2 pr-3 text-right tabular-nums">{formatSigned(m.absoluteDiff)}</td>
@@ -57,7 +57,7 @@ export function ComparisonTable({ comparison }: { comparison: ComparisonResult }
         </tbody>
       </table>
       {comparison.warnings.length > 0 && (
-        <ul className="mt-3 space-y-1 text-xs text-amber-400">
+        <ul className="mt-3 space-y-1 text-xs text-amber-700">
           {comparison.warnings.map((w) => <li key={w}>⚠ {w}</li>)}
         </ul>
       )}

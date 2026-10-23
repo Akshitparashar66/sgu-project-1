@@ -41,7 +41,7 @@ export function Legend({ ref }: { ref?: Ref<HTMLDivElement> }) {
       ref={ref}
       role="list"
       aria-label="Map legend"
-      className="absolute bottom-6 left-4 z-[1000] flex max-w-[min(46rem,calc(100%-2rem))] flex-wrap gap-x-4 gap-y-1 rounded-lg border border-slate-700 bg-slate-900/90 px-3 py-2 text-xs text-slate-200 backdrop-blur"
+      className="absolute bottom-6 left-4 z-[1000] flex max-w-[min(46rem,calc(100%-2rem))] flex-wrap gap-x-4 gap-y-1 rounded-lg border border-slate-200 bg-white/95 px-3 py-2 text-xs text-slate-800"
     >
       {LEGEND_ITEMS.map((item) => (
         <div role="listitem" key={item.label} className="flex items-center gap-1.5">

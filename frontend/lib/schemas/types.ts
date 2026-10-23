@@ -18,6 +18,8 @@ export interface RoadEdge {
   baseTravelTimeS: number;
   status: RoadStatus;
   hazardRisk: number;
+  /** Street path from source to target, [lat, lon] pairs. Drawing only; absent = straight line. */
+  geometry?: [number, number][] | null;
 }
 
 export interface PopulationZone {

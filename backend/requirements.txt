@@ -2,5 +2,7 @@ fastapi>=0.115
 uvicorn[standard]>=0.30
 pydantic>=2.7
 networkx>=3.3
+google-genai>=2.33  # optional Gemini briefing / what-if parsing; offline fallback without a key
+python-dotenv>=1.2  # loads GEMINI_API_KEY from backend/.env.local
 pytest>=8
 httpx2  # TestClient transport (Starlette >=1.9 deprecates plain httpx)

@@ -1,6 +1,7 @@
 import { render, screen } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { describe, expect, it, vi } from "vitest";
+import { ROAD_CASING_COLOR } from "@/lib/map/styling";
 import type { ScenarioConfig } from "@/lib/schemas/types";
 import { EvacuationMap } from "./EvacuationMap";
 
@@ -9,6 +10,10 @@ type MockLayerProps = { pathOptions?: { color?: string }; children?: ReactNode }
 vi.mock("react-leaflet", () => ({
   MapContainer: ({ children }: { children: ReactNode }) => <div data-testid="map-container">{children}</div>,
   TileLayer: () => <div data-testid="tile-layer" />,
+  LayerGroup: ({ children }: { children: ReactNode }) => <div>{children}</div>,
+  LayersControl: Object.assign(({ children }: { children: ReactNode }) => <div>{children}</div>, {
+    BaseLayer: ({ children }: { children: ReactNode }) => <div>{children}</div>,
+  }),
   Polyline: (props: MockLayerProps) => <div data-testid="polyline" data-color={props.pathOptions?.color} />,
   Polygon: () => <div data-testid="polygon" />,
   CircleMarker: (props: MockLayerProps) => <div data-testid="circle-marker" data-color={props.pathOptions?.color}>{props.children}</div>,
@@ -41,10 +46,12 @@ function buildScenario(): ScenarioConfig {
 }
 
 describe("EvacuationMap", () => {
-  it("renders one Polyline per edge, one CircleMarker per shelter, and the hazard polygon", () => {
+  it("renders one cased Polyline per edge, one CircleMarker per shelter, and the hazard polygon", () => {
     render(<EvacuationMap scenario={buildScenario()} />);
 
-    expect(screen.getAllByTestId("polyline")).toHaveLength(1);
+    const lines = screen.getAllByTestId("polyline");
+    expect(lines.filter((l) => l.dataset.color !== ROAD_CASING_COLOR)).toHaveLength(1);
+    expect(lines.filter((l) => l.dataset.color === ROAD_CASING_COLOR)).toHaveLength(1);
     expect(screen.getAllByTestId("circle-marker")).toHaveLength(1);
     expect(screen.getByTestId("polygon")).toBeInTheDocument();
   });

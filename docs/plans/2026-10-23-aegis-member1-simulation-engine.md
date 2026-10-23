@@ -1,8 +1,6 @@
 # AEGIS — Member 1: Simulation Engine Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use `superpowers:executing-plans`
-> (recommended for a solo hackathon workstream) to implement this plan
-> task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** A pure, fully-tested, deterministic simulation loop that turns a
 list of `AgentPlan`s into a `RunResult` — agent state transitions, time

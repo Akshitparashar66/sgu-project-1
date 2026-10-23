@@ -1,7 +1,6 @@
 # AEGIS — Member 2: Routing & Optimization Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use `superpowers:executing-plans`
-> to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax.
+> Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Replace Member 1's temporary stubs (`build_graph`,
 `compute_shortest_route`, `assign_shelters_and_routes`,

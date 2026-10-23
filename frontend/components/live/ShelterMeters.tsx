@@ -16,8 +16,8 @@ export function ShelterMeters({ shelters, occupancy }: { shelters: Shelter[]; oc
         return (
           <li key={shelter.id}>
             <div className="mb-1 flex items-baseline justify-between gap-2 text-xs">
-              <span className="truncate text-slate-300">{shelter.id} · {shelter.name}</span>
-              <span className="shrink-0 tabular-nums text-slate-400">
+              <span className="truncate text-slate-700">{shelter.id} · {shelter.name}</span>
+              <span className="shrink-0 tabular-nums text-slate-500">
                 {shelter.available ? `${occupied} / ${shelter.totalCapacity}` : "unavailable"}
               </span>
             </div>
@@ -27,7 +27,7 @@ export function ShelterMeters({ shelters, occupancy }: { shelters: Shelter[]; oc
               aria-valuemin={0}
               aria-valuemax={shelter.totalCapacity}
               aria-valuenow={occupied}
-              className="h-2 overflow-hidden rounded-full bg-slate-800"
+              className="h-2 overflow-hidden rounded-full bg-slate-100"
             >
               <div className="h-full rounded-full transition-[width] duration-150" style={{ width: `${ratio * 100}%`, backgroundColor: color }} />
             </div>

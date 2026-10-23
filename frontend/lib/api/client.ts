@@ -106,3 +106,35 @@ export const compareRuns = (baselineRun: RunResult, alternativeRun: RunResult) =
   apiFetch<ComparisonResult>("/api/simulations/compare", {
     method: "POST", body: JSON.stringify({ baselineRun, alternativeRun }),
   });
+
+/** Whether the backend has a Gemini API key. Without them both AI features use their offline fallback. */
+export const fetchAiStatus = () => apiFetch<{ configured: boolean; provider: string; model: string; fallbackModels: string[] }>("/api/ai/status");
+
+export interface Briefing {
+  /** "gemini": written by Gemini and every number checked against the run; "template": fixed-sentence summary. */
+  source: "gemini" | "template";
+  text: string;
+  facts: Record<string, unknown>;
+  warnings: string[];
+}
+
+/** Briefs the run for these exact inputs (the backend re-runs it deterministically with the same seed). */
+export const requestBriefing = (
+  request: { scenarioId: string; randomSeed: number; includePlan?: boolean } & ScenarioOverrides
+) => apiFetch<Briefing>("/api/ai/briefing", { method: "POST", body: JSON.stringify(request) });
+
+export interface WhatIfProposal {
+  /** "gemini": interpreted by Gemini; "keywords": offline id/name matching. */
+  source: "gemini" | "keywords";
+  closeEdgeIds: string[];
+  reopenEdgeIds: string[];
+  unavailableShelterIds: string[];
+  restoreShelterIds: string[];
+  interpretation: string;
+  /** Parts of the question that can't be expressed as road/shelter changes. */
+  unmatched: string[];
+  warnings: string[];
+}
+
+export const interpretWhatIf = (request: { scenarioId: string; question: string } & ScenarioOverrides) =>
+  apiFetch<WhatIfProposal>("/api/ai/what-if", { method: "POST", body: JSON.stringify(request) });

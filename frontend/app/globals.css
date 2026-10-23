@@ -1,63 +1,129 @@
 @import "tailwindcss";
 
 @theme inline {
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --font-sans: var(--font-fira-sans);
+  --font-mono: var(--font-fira-code);
 }
 
-/* AEGIS is a dark command-center UI in every color scheme (PRD §4.1). */
+/* AEGIS uses a calm light theme: neutral surfaces, one blue accent, and
+   red / amber / green reserved for status. */
 :root {
-  color-scheme: dark;
+  color-scheme: light;
 }
 
 body {
-  font-family: var(--font-geist-sans), system-ui, sans-serif;
+  font-family: var(--font-fira-sans), system-ui, sans-serif;
 }
 
-/* Leaflet chrome, re-themed to match the navy shell. */
+/* Every operable control: pointer cursor, a 200 ms state transition, and a
+   visible keyboard focus ring. */
+button:not(:disabled),
+[role="button"],
+select,
+summary,
+a[href],
+input[type="checkbox"],
+input[type="range"] {
+  cursor: pointer;
+}
+
+button,
+a,
+select,
+input,
+summary {
+  transition: color 200ms ease, background-color 200ms ease, border-color 200ms ease, opacity 200ms ease;
+}
+
+:focus-visible {
+  outline: 2px solid #2563eb;
+  outline-offset: 2px;
+}
+
+::selection {
+  background: #dbeafe;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+  }
+}
+
+/* Leaflet chrome, re-themed to match the light shell. */
 .leaflet-container {
-  background: #020617;
+  background: #f1f5f9;
   font-family: inherit;
 }
 
-/* Light OSM tiles turned into a dim, desaturated dark basemap so the
-   synthetic road network (the actual subject) stays the brightest thing. */
+/* OSM tiles softened to a quiet grey so the synthetic road network (the
+   actual subject) carries all the colour. */
 .aegis-basemap {
-  filter: invert(1) hue-rotate(180deg) brightness(0.4) contrast(0.85) saturate(0.2);
+  filter: grayscale(1) brightness(1.08) contrast(0.75);
+  opacity: 0.5;
 }
 
 .leaflet-tooltip {
-  background: rgb(15 23 42 / 0.95);
-  color: #e2e8f0;
-  border: 1px solid #334155;
-  border-radius: 6px;
+  background: #ffffff;
+  color: #1e293b;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
   box-shadow: none;
   font-size: 12px;
 }
 
-.leaflet-tooltip-top::before { border-top-color: #334155; }
-.leaflet-tooltip-bottom::before { border-bottom-color: #334155; }
-.leaflet-tooltip-left::before { border-left-color: #334155; }
-.leaflet-tooltip-right::before { border-right-color: #334155; }
+.leaflet-tooltip-top::before { border-top-color: #e2e8f0; }
+.leaflet-tooltip-bottom::before { border-bottom-color: #e2e8f0; }
+.leaflet-tooltip-left::before { border-left-color: #e2e8f0; }
+.leaflet-tooltip-right::before { border-right-color: #e2e8f0; }
 
 /* Permanent shelter / zone labels: compact, no pointer arrow. */
 .leaflet-tooltip.aegis-label {
   padding: 1px 6px;
   font-size: 11px;
-  background: rgb(2 6 23 / 0.8);
+  font-weight: 500;
+  background: rgb(255 255 255 / 0.92);
+  box-shadow: none;
 }
 .leaflet-tooltip.aegis-label::before { display: none; }
 
 .leaflet-control-attribution {
-  background: rgb(2 6 23 / 0.7) !important;
+  background: rgb(255 255 255 / 0.8) !important;
   color: #64748b !important;
 }
-.leaflet-control-attribution a { color: #94a3b8 !important; }
+.leaflet-control-attribution a { color: #475569 !important; }
 
-.leaflet-bar a {
-  background: #0f172a;
-  color: #e2e8f0;
-  border-bottom-color: #334155;
+.leaflet-bar,
+.leaflet-control-layers {
+  border: 1px solid #cbd5e1 !important;
+  border-radius: 8px !important;
+  box-shadow: none !important;
+  overflow: hidden;
 }
-.leaflet-bar a:hover { background: #1e293b; }
-.leaflet-bar a:focus-visible { outline: 2px solid #22d3ee; outline-offset: 1px; }
+
+/* Base-map switcher (Streets / Satellite / Minimal). */
+.leaflet-control-layers {
+  background: #ffffff;
+  color: #334155;
+}
+.leaflet-control-layers-expanded {
+  padding: 8px 12px;
+}
+.leaflet-control-layers-base label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 28px;
+  font-size: 13px;
+}
+.leaflet-control-layers-selector {
+  accent-color: #2563eb;
+}
+.leaflet-bar a {
+  background: #ffffff;
+  color: #334155;
+  border-bottom-color: #e2e8f0;
+}
+.leaflet-bar a:hover { background: #f8fafc; }
+.leaflet-bar a:focus-visible { outline: 2px solid #2563eb; outline-offset: 1px; }

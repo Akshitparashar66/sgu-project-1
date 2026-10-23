@@ -25,18 +25,18 @@ export function ScenarioPanel({ state, effectiveScenario, actions, onOpenCompari
   const { closedEdgeIds, unavailableShelterIds } = state.overrides;
 
   return (
-    <aside aria-label="Scenario controls" className="flex w-80 shrink-0 flex-col gap-4 overflow-y-auto border-r border-slate-800 bg-slate-900/40 p-4">
+    <aside aria-label="Scenario controls" className="flex w-80 shrink-0 flex-col gap-4 overflow-y-auto border-r border-slate-200 bg-slate-50 p-4">
       <section>
         <label htmlFor="scenario-select" className="text-xs uppercase tracking-wide text-slate-500">Scenario</label>
         <select
           id="scenario-select"
           value={state.scenario?.id ?? ""}
           onChange={(e) => actions.loadScenario(e.target.value)}
-          className="mt-1 w-full rounded-md border border-slate-700 bg-slate-900 px-2 py-1.5 text-sm text-slate-100 focus-visible:outline-2 focus-visible:outline-cyan-400"
+          className="mt-1 w-full rounded-md border border-slate-200 bg-white px-2 py-1.5 text-sm text-slate-900 focus-visible:outline-2 focus-visible:outline-blue-600"
         >
           {state.scenarios.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
         </select>
-        <p className="mt-2 text-xs leading-relaxed text-slate-400">{state.scenario?.description}</p>
+        <p className="mt-2 text-xs leading-relaxed text-slate-500">{state.scenario?.description}</p>
       </section>
 
       <dl className="grid grid-cols-3 gap-2 text-center">
@@ -66,7 +66,7 @@ export function ScenarioPanel({ state, effectiveScenario, actions, onOpenCompari
           type="button"
           onClick={actions.run}
           disabled={!state.scenario || state.busy !== null}
-          className="inline-flex items-center justify-center gap-2 rounded-md bg-cyan-500 px-3 py-2 text-sm font-semibold text-slate-950 hover:bg-cyan-400 disabled:cursor-not-allowed disabled:opacity-50"
+          className="inline-flex items-center justify-center gap-2 rounded-md bg-blue-600 px-3 py-2 text-sm font-semibold text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
         >
           {state.busy === "run" ? <Loader2 size={16} className="animate-spin" aria-hidden /> : <Play size={16} aria-hidden />}
           Run simulation
@@ -75,7 +75,7 @@ export function ScenarioPanel({ state, effectiveScenario, actions, onOpenCompari
           type="button"
           onClick={async () => { await actions.generatePlan(); onOpenComparison(); }}
           disabled={!state.scenario || state.busy !== null}
-          className="inline-flex items-center justify-center gap-2 rounded-md border border-cyan-500/40 px-3 py-2 text-sm font-medium text-cyan-300 hover:bg-cyan-500/10 disabled:cursor-not-allowed disabled:opacity-50"
+          className="inline-flex items-center justify-center gap-2 rounded-md border border-blue-200 px-3 py-2 text-sm font-medium text-blue-700 hover:bg-blue-50 disabled:cursor-not-allowed disabled:opacity-50"
         >
           {state.busy === "plan" ? <Loader2 size={16} className="animate-spin" aria-hidden /> : <GitCompareArrows size={16} aria-hidden />}
           Generate alternative plan
@@ -83,11 +83,11 @@ export function ScenarioPanel({ state, effectiveScenario, actions, onOpenCompari
       </div>
 
       {state.error && (
-        <p role="alert" className="rounded-md border border-red-500/40 bg-red-500/10 p-2 text-xs text-red-300">{state.error}</p>
+        <p role="alert" className="rounded-md border border-red-200 bg-red-50 p-2 text-xs text-red-700">{state.error}</p>
       )}
 
       {stale && (
-        <p className="rounded-md border border-amber-500/40 bg-amber-500/10 p-2 text-xs text-amber-300">
+        <p className="rounded-md border border-amber-200 bg-amber-50 p-2 text-xs text-amber-800">
           Results below are from before your latest changes. Run the simulation again to update them.
         </p>
       )}
@@ -104,8 +104,8 @@ export function ScenarioPanel({ state, effectiveScenario, actions, onOpenCompari
 
 function Fact({ label, value, warn = false }: { label: string; value: string | number; warn?: boolean }) {
   return (
-    <div className="rounded-md border border-slate-800 bg-slate-950/50 px-1 py-2">
-      <dd className={`text-lg font-semibold tabular-nums ${warn ? "text-amber-400" : "text-slate-100"}`}>{value}</dd>
+    <div className="rounded-md border border-slate-200 bg-slate-50 px-1 py-2">
+      <dd className={`font-mono text-lg font-semibold tabular-nums ${warn ? "text-amber-700" : "text-slate-900"}`}>{value}</dd>
       <dt className="text-[11px] text-slate-500">{label}</dt>
     </div>
   );
@@ -113,9 +113,9 @@ function Fact({ label, value, warn = false }: { label: string; value: string | n
 
 function OverrideChip({ label, onRemove }: { label: string; onRemove: () => void }) {
   return (
-    <li className="inline-flex items-center gap-1 rounded-full border border-red-500/40 bg-red-500/10 py-0.5 pl-2.5 pr-1 text-xs text-red-300">
+    <li className="inline-flex items-center gap-1 rounded-full border border-red-200 bg-red-50 py-0.5 pl-2.5 pr-1 text-xs text-red-700">
       {label}
-      <button type="button" onClick={onRemove} aria-label={`Undo: ${label}`} className="rounded-full p-0.5 hover:bg-red-500/20">
+      <button type="button" onClick={onRemove} aria-label={`Undo: ${label}`} className="rounded-full p-0.5 hover:bg-red-100">
         <X size={12} aria-hidden />
       </button>
     </li>

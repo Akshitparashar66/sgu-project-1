@@ -33,7 +33,7 @@ export function Inspector({ scenario, selection, run, onToggleEdge, onToggleShel
     title = `Road ${edge.id}`;
     body = (
       <>
-        <p className="mb-2 text-slate-300">{nodeLabel(edge.source)} → {nodeLabel(edge.target)}</p>
+        <p className="mb-2 text-slate-700">{nodeLabel(edge.source)} → {nodeLabel(edge.target)}</p>
         <Facts rows={[
           ["Status", edge.status],
           ["Length", `${edge.lengthM} m`],
@@ -89,7 +89,7 @@ export function Inspector({ scenario, selection, run, onToggleEdge, onToggleShel
         <h4 className="mt-3 text-xs uppercase tracking-wide text-slate-500">Population mix</h4>
         <ul className="mt-1 flex flex-wrap gap-1.5">
           {Object.entries(zone.movementProfile).map(([profile, share]) => (
-            <li key={profile} className="rounded bg-slate-800 px-2 py-0.5">{profile.replace(/_/g, " ")} {Math.round(share * 100)}%</li>
+            <li key={profile} className="rounded bg-slate-100 px-2 py-0.5">{profile.replace(/_/g, " ")} {Math.round(share * 100)}%</li>
           ))}
         </ul>
         {run && (
@@ -97,9 +97,9 @@ export function Inspector({ scenario, selection, run, onToggleEdge, onToggleShel
             <h4 className="mt-3 text-xs uppercase tracking-wide text-slate-500">Where they went</h4>
             <ul className="mt-1 flex flex-wrap gap-1.5">
               {[...destinations.entries()].map(([shelterId, count]) => (
-                <li key={shelterId} className="rounded bg-green-500/10 px-2 py-0.5 text-green-300">{shelterId}: {count}</li>
+                <li key={shelterId} className="rounded bg-green-50 px-2 py-0.5 text-green-800">{shelterId}: {count}</li>
               ))}
-              {unserved > 0 && <li className="rounded bg-red-500/10 px-2 py-0.5 text-red-300">unserved: {unserved}</li>}
+              {unserved > 0 && <li className="rounded bg-red-50 px-2 py-0.5 text-red-700">unserved: {unserved}</li>}
             </ul>
           </>
         )}
@@ -108,10 +108,10 @@ export function Inspector({ scenario, selection, run, onToggleEdge, onToggleShel
   }
 
   return (
-    <section aria-label="Inspector" className="w-72 rounded-lg border border-slate-700 bg-slate-900/95 p-4 text-sm text-slate-200 shadow-xl backdrop-blur">
+    <section aria-label="Inspector" className="w-72 rounded-lg border border-slate-200 bg-white p-4 text-sm text-slate-800">
       <div className="mb-2 flex items-start justify-between gap-2">
-        <h3 className="font-semibold text-slate-100">{title}</h3>
-        <button type="button" onClick={onClose} aria-label="Close inspector" className="rounded p-0.5 text-slate-400 hover:bg-slate-800 hover:text-slate-100">
+        <h3 className="font-semibold text-slate-900">{title}</h3>
+        <button type="button" onClick={onClose} aria-label="Close inspector" className="rounded p-0.5 text-slate-500 hover:bg-slate-100 hover:text-slate-900">
           <X size={16} aria-hidden />
         </button>
       </div>
@@ -126,7 +126,7 @@ function Facts({ rows }: { rows: [string, string][] }) {
       {rows.map(([label, value]) => (
         <div key={label} className="contents">
           <dt className="text-slate-500">{label}</dt>
-          <dd className="tabular-nums text-slate-200">{value}</dd>
+          <dd className="tabular-nums text-slate-800">{value}</dd>
         </div>
       ))}
     </dl>
@@ -135,8 +135,8 @@ function Facts({ rows }: { rows: [string, string][] }) {
 
 function ActionButton({ tone, onClick, children }: { tone: "danger" | "restore"; onClick: () => void; children: ReactNode }) {
   const toneClass = tone === "danger"
-    ? "border-red-500/40 text-red-300 hover:bg-red-500/10"
-    : "border-green-500/40 text-green-300 hover:bg-green-500/10";
+    ? "border-red-200 text-red-700 hover:bg-red-50"
+    : "border-green-200 text-green-800 hover:bg-green-50";
   return (
     <button type="button" onClick={onClick} className={`mt-3 w-full rounded-md border px-3 py-1.5 text-sm font-medium ${toneClass}`}>
       {children}

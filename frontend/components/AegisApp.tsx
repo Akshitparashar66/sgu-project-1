@@ -18,8 +18,8 @@ export function AegisApp() {
   function renderView() {
     if (!effectiveScenario) {
       return (
-        <div className="grid h-full place-items-center p-6 text-sm text-slate-400">
-          {state.error ? <p role="alert" className="max-w-md text-red-300">{state.error}</p> : "Loading scenario…"}
+        <div className="grid h-full place-items-center p-6 text-sm text-slate-500">
+          {state.error ? <p role="alert" className="max-w-md text-red-700">{state.error}</p> : "Loading scenario…"}
         </div>
       );
     }

@@ -52,6 +52,10 @@ class RoadEdge(CamelModel):
     base_travel_time_s: float = Field(gt=0)
     status: RoadStatus = RoadStatus.OPEN
     hazard_risk: float = Field(default=0.0, ge=0.0, le=1.0)
+    # The street path this road follows, [(lat, lon), ...] from source to
+    # target. Drawing only: the simulation uses length_m and travel times.
+    # None => drawn as a straight line between the two nodes.
+    geometry: Optional[list[tuple[float, float]]] = Field(default=None, min_length=2)
 
 
 class PopulationZone(CamelModel):

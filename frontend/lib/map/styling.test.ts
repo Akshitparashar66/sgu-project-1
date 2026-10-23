@@ -3,16 +3,16 @@ import { agentMarkerColor, roadColor, roadDashArray, shelterFillColor } from "./
 
 describe("roadColor", () => {
   it("renders a closed road as red regardless of congestion", () => {
-    expect(roadColor("closed", 0)).toBe("#ef4444");
+    expect(roadColor("closed", 0)).toBe("#dc2626");
   });
 
   it("renders an open, uncongested road as cyan", () => {
-    expect(roadColor("open", 0.3)).toBe("#22d3ee");
+    expect(roadColor("open", 0.3)).toBe("#2563eb");
   });
 
   it("renders an open road above capacity as amber, badly congested as red", () => {
-    expect(roadColor("open", 1.2)).toBe("#f59e0b");
-    expect(roadColor("open", 1.8)).toBe("#ef4444");
+    expect(roadColor("open", 1.2)).toBe("#d97706");
+    expect(roadColor("open", 1.8)).toBe("#dc2626");
   });
 });
 
@@ -25,9 +25,9 @@ describe("roadDashArray", () => {
 
 describe("shelterFillColor", () => {
   it("colors by occupancy ratio: green < 80%, amber 80-99%, red at capacity", () => {
-    expect(shelterFillColor(0, 100)).toBe("#22c55e");
-    expect(shelterFillColor(85, 100)).toBe("#f59e0b");
-    expect(shelterFillColor(100, 100)).toBe("#ef4444");
+    expect(shelterFillColor(0, 100)).toBe("#16a34a");
+    expect(shelterFillColor(85, 100)).toBe("#d97706");
+    expect(shelterFillColor(100, 100)).toBe("#dc2626");
   });
 });
 

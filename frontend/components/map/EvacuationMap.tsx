@@ -2,9 +2,10 @@
 
 import type { FitBoundsOptions } from "leaflet";
 import { type ReactNode, useEffect, useRef, useState } from "react";
-import { MapContainer, TileLayer } from "react-leaflet";
+import { MapContainer } from "react-leaflet";
 
 import type { AgentResult, ScenarioConfig } from "@/lib/schemas/types";
+import { Basemaps } from "./Basemaps";
 import { FitToBounds } from "./FitToBounds";
 import { AgentClusterLayer } from "./layers/AgentClusterLayer";
 import { HazardLayer } from "./layers/HazardLayer";
@@ -42,8 +43,10 @@ export function EvacuationMap({
   scenario, congestionByEdgeId = {}, agents = [], occupancyByShelterId, selection = null, onSelect, children,
 }: EvacuationMapProps) {
   const nodeById = new Map(scenario.nodes.map((n) => [n.id, n]));
-  const lats = scenario.nodes.map((n) => n.lat);
-  const lons = scenario.nodes.map((n) => n.lon);
+  // Fit nodes and the street paths between them: a road can bend outside its junctions.
+  const points = [...scenario.nodes.map((n) => [n.lat, n.lon]), ...scenario.edges.flatMap((e) => e.geometry ?? [])];
+  const lats = points.map((p) => p[0]);
+  const lons = points.map((p) => p[1]);
   const bounds: [[number, number], [number, number]] = scenario.nodes.length
     ? [[Math.min(...lats), Math.min(...lons)], [Math.max(...lats), Math.max(...lons)]]
     : [[0, 0], [0, 0]];
@@ -63,14 +66,9 @@ export function EvacuationMap({
   return (
     <div className="relative h-full w-full">
       {/* zoomSnap 0.25: whole-level zoom steps leave the small network tiny after a refit. */}
-      <MapContainer bounds={bounds} boundsOptions={fit} zoomSnap={0.25} className="h-full w-full bg-slate-950">
+      <MapContainer bounds={bounds} boundsOptions={fit} zoomSnap={0.25} className="h-full w-full bg-slate-50">
         <FitToBounds bounds={bounds} options={fit} />
-        {/* Standard OSM tiles, darkened in globals.css (.aegis-basemap) — no API key needed. */}
-        <TileLayer
-          url="https://tile.openstreetmap.org/{z}/{x}/{y}.png"
-          className="aegis-basemap"
-          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-        />
+        <Basemaps />
         <HazardLayer hazards={scenario.hazards} />
         <RoadLayer edges={scenario.edges} congestionByEdgeId={congestionByEdgeId} {...context} />
         {/* Agent clusters render under shelters/zones, so they read as a halo sized by headcount. */}
@@ -79,8 +77,8 @@ export function EvacuationMap({
         <ZoneLayer zones={scenario.zones} {...context} />
         <ShelterLayer shelters={scenario.shelters} occupancyByShelterId={occupancyByShelterId} {...context} />
       </MapContainer>
-      <p className="pointer-events-none absolute left-16 top-3 z-[1000] rounded-md bg-slate-950/80 px-2 py-1 text-[11px] text-slate-400">
-        Schematic synthetic road network · basemap for orientation only
+      <p className="pointer-events-none absolute left-16 top-3 z-[1000] rounded-md bg-white/90 px-2 py-1 text-[11px] text-slate-500">
+        Roads follow real streets (OpenStreetMap) · people, shelters and capacities are synthetic
       </p>
       <Legend ref={legendRef} />
     </div>

@@ -1,7 +1,6 @@
 # AEGIS — Member 4: Dashboard & UX Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use `superpowers:executing-plans`.
-> **Recommended tool:** Antigravity — layout and theming are judged by eye.
+> Layout and theming are judged by eye — check every step in the browser.
 
 **Goal:** The command-center shell (sidebar, header, results drawer) from
 PRD §4.2, plus the metric-formatting rules from PRD §8 that keep the
@@ -291,7 +290,7 @@ export function AppShell({ activeNavId, scenarioName, simulationStatus, onReset,
 Run: `cd frontend && npx vitest run components/layout/AppShell.test.tsx`
 Expected: `2 passed`
 
-- [ ] **Step 5: Antigravity visual check**
+- [ ] **Step 5: Browser visual check**
 
 Load the shell in the browser preview with each `simulationStatus` value
 and confirm the status pill's color reads clearly against the navy
@@ -491,8 +490,8 @@ git commit -m "feat(dashboard): collapsible results drawer with capacity-aware s
   5-line local `fetch("/api/scenarios").then(r => r.json())` stand-in
   with the same function name/signature so you aren't blocked — same
   incremental-replacement pattern as the backend plans.
-- [ ] **Responsive layout pass (PRD §4.1, §4.2.E)** — confirm with
-  Antigravity at a laptop width (~1280px) that the results drawer's
+- [ ] **Responsive layout pass (PRD §4.1, §4.2.E)** — confirm in
+  the browser at a laptop width (~1280px) that the results drawer's
   `max-h-72` doesn't starve the map's visible height, and that collapsing
   it restores most of the screen to the map. Do this jointly with
   Member 3 once both pieces are merged.

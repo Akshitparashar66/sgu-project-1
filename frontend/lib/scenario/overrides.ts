@@ -31,3 +31,20 @@ export function applyOverrides(scenario: ScenarioConfig, overrides: Overrides): 
     shelters: scenario.shelters.map((s) => (unavailable.has(s.id) ? { ...s, available: false } : s)),
   };
 }
+
+/** A set of what-if changes to make on top of the current overrides (e.g. parsed from a typed question). */
+export interface OverrideChanges {
+  closeEdgeIds: string[];
+  reopenEdgeIds: string[];
+  unavailableShelterIds: string[];
+  restoreShelterIds: string[];
+}
+
+export function mergeOverrides(overrides: Overrides, changes: OverrideChanges): Overrides {
+  const merge = (current: string[], add: string[], remove: string[]) =>
+    [...new Set([...current, ...add])].filter((id) => !remove.includes(id));
+  return {
+    closedEdgeIds: merge(overrides.closedEdgeIds, changes.closeEdgeIds, changes.reopenEdgeIds),
+    unavailableShelterIds: merge(overrides.unavailableShelterIds, changes.unavailableShelterIds, changes.restoreShelterIds),
+  };
+}

@@ -1,13 +1,13 @@
+import { type LatLon, pointAlong, roadPath } from "@/lib/map/roadPath";
 import type { AgentResult, AgentStatus, RunResult, ScenarioConfig } from "@/lib/schemas/types";
 
 // Mirrors MOVEMENT_PROFILE_TIME_MULTIPLIER in backend/app/simulation/engine.py.
 // Used only to tell "slow because congested" from "slow because of mobility".
 const PROFILE_MULTIPLIER: Record<string, number> = { standard: 1.0, reduced_mobility: 1.6 };
 
-type LatLon = [number, number];
-
 interface Leg {
-  from: LatLon;
+  /** Street path walked on this leg, in walking order (first point = where the leg starts). */
+  path: LatLon[];
   to: LatLon;
   entry: number;
   /** Last tick spent on this edge; null = still on it when the run hit max_ticks. */
@@ -40,6 +40,7 @@ export interface AgentFrame {
 /** Precompute each agent's legs (in walking order — roads are undirected) once per run. */
 export function buildReplay(scenario: ScenarioConfig, run: RunResult): Replay {
   const nodes = new Map(scenario.nodes.map((n) => [n.id, [n.lat, n.lon] as LatLon]));
+  const nodeById = new Map(scenario.nodes.map((n) => [n.id, n]));
   const edges = new Map(scenario.edges.map((e) => [e.id, e]));
   const zoneNode = new Map(scenario.zones.map((z) => [z.id, z.connectorNode]));
   const shelterNode = new Map(scenario.shelters.map((s) => [s.id, s.connectorNode]));
@@ -56,8 +57,9 @@ export function buildReplay(scenario: ScenarioConfig, run: RunResult): Replay {
       const next = edge.source === current ? edge.target : edge.source;
       const exit = agent.edgeExitTicks[i] ?? null;
       const multiplier = PROFILE_MULTIPLIER[agent.movementProfile] ?? 1;
+      const path = roadPath(edge, nodeById.get(edge.source)!, nodeById.get(edge.target)!);
       legs.push({
-        from: nodes.get(current)!, to: nodes.get(next)!, entry, exit,
+        path: edge.source === current ? path : [...path].reverse(), to: nodes.get(next)!, entry, exit,
         freeFlowTicks: Math.max(1, Math.round((edge.baseTravelTimeS * multiplier) / tickSeconds)),
       });
       lastTick = Math.max(lastTick, exit ?? entry);
@@ -113,15 +115,13 @@ function frameFor(track: AgentTrack, t: number, lastTick: number, jitter: boolea
   const progress = Math.min(1, Math.max(0, elapsed / span));
   const knownSpan = leg.exit === null ? elapsed : span;
 
-  let lat = leg.from[0] + (leg.to[0] - leg.from[0]) * progress;
-  let lon = leg.from[1] + (leg.to[1] - leg.from[1]) * progress;
+  const { point, direction } = pointAlong(leg.path, progress);
+  let [lat, lon] = point;
   if (jitter) {
-    const dLat = leg.to[0] - leg.from[0];
-    const dLon = leg.to[1] - leg.from[1];
-    const length = Math.hypot(dLat, dLon) || 1;
+    // Perpendicular to the street segment the agent is on.
     const offset = jitterFor(track.id) * JITTER_DEGREES;
-    lat += (-dLon / length) * offset;
-    lon += (dLat / length) * offset;
+    lat += -direction[1] * offset;
+    lon += direction[0] * offset;
   }
 
   let status: AgentFrame["status"] = knownSpan > leg.freeFlowTicks ? "delayed" : "moving";

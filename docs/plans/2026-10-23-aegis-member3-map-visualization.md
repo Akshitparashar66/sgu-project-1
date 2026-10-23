@@ -1,9 +1,7 @@
 # AEGIS — Member 3: Map & Visualization Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use `superpowers:executing-plans`.
-> **Recommended tool:** Antigravity — this workstream is judged by eye, so
-> use its browser-verification loop (screenshot → compare → fix) after every
-> step, not just the automated tests below.
+> This workstream is judged by eye: check the result in the browser
+> (screenshot → compare → fix) after every step, not just the automated tests below.
 
 **Goal:** A Leaflet map rendering every PRD §4.2 layer (roads, population
 zones, shelters, hazard boundary, closed roads, routes, congestion,
@@ -249,7 +247,7 @@ export function Legend() {
 Run: `cd frontend && npx vitest run components/map/Legend.test.tsx`
 Expected: `1 passed`
 
-- [ ] **Step 5: Antigravity visual check (not an automated test)**
+- [ ] **Step 5: Browser visual check (not an automated test)**
 
 Render `<Legend />` alone in the browser preview and confirm by eye: text
 is readable against the dark background, the dashed swatch actually looks
@@ -283,7 +281,7 @@ browser layout APIs jsdom doesn't fully provide. Rather than fight that,
 mock `react-leaflet`'s primitives in the unit test (verifying structure —
 right number of roads/shelters rendered, right props passed) and verify
 actual visual correctness (does it look right, does panning/zooming work)
-with Antigravity's browser tool against the real dev server. Both matter;
+in the browser against the real dev server. Both matter;
 neither substitutes for the other.
 
 - [ ] **Step 1: Write the failing test**
@@ -440,9 +438,9 @@ export function EvacuationMap({ scenario, congestionByEdgeId = {}, agents = [] }
 Run: `cd frontend && npx vitest run components/map/EvacuationMap.test.tsx`
 Expected: `2 passed`
 
-- [ ] **Step 5: Antigravity visual check**
+- [ ] **Step 5: Browser visual check**
 
-Start the dev server (Antigravity's browser tool), load a page rendering
+Start the dev server, load a page rendering
 `<EvacuationMap scenario={scenarioA} />` with the real
 `data/scenarios/scenario_a_normal.json` fixture (master plan §4). Confirm
 by eye: the tile layer loads, the hazard polygon sits roughly between N3
@@ -485,5 +483,5 @@ git commit -m "feat(map): render roads, hazard zone, shelters and resolved agent
 - [ ] **Accessibility (PRD §12.3)** — keyboard focus should be able to
   reach the legend and any map controls; Leaflet's default zoom buttons
   are already keyboard-accessible, verify they still are after Tailwind
-  styling is applied (Antigravity: tab through the page and screenshot
+  styling is applied (tab through the page and screenshot
   the focus ring).

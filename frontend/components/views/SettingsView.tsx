@@ -25,20 +25,20 @@ export function SettingsView({ state, effectiveScenario: scenario, actions }: {
   return (
     <Page title="Settings" intro="Simulation parameters and system information.">
       <Card title="Reproducibility">
-        <label htmlFor="seed" className="text-sm text-slate-300">Random seed</label>
+        <label htmlFor="seed" className="text-sm text-slate-700">Random seed</label>
         <div className="mt-1 flex flex-wrap items-center gap-2">
           <input
             id="seed"
             type="number"
             value={state.seed}
             onChange={(e) => { if (e.target.value !== "") actions.setSeed(Math.trunc(Number(e.target.value))); }}
-            className="w-32 rounded-md border border-slate-700 bg-slate-900 px-2 py-1.5 text-sm tabular-nums text-slate-100"
+            className="w-32 rounded-md border border-slate-200 bg-white px-2 py-1.5 text-sm tabular-nums text-slate-900"
           />
           <button
             type="button"
             onClick={() => actions.setSeed(defaultSeed)}
             disabled={state.seed === defaultSeed}
-            className="rounded-md border border-slate-700 px-3 py-1.5 text-sm text-slate-300 hover:bg-slate-800 disabled:opacity-40"
+            className="rounded-md border border-slate-200 px-3 py-1.5 text-sm text-slate-700 hover:bg-slate-100 disabled:opacity-40"
           >
             Use scenario default ({defaultSeed})
           </button>
@@ -52,23 +52,23 @@ export function SettingsView({ state, effectiveScenario: scenario, actions }: {
       <Card title="Simulation clock (from the scenario)">
         <dl className="grid grid-cols-2 gap-x-6 gap-y-1 text-sm sm:max-w-md">
           <dt className="text-slate-500">Tick length</dt>
-          <dd className="tabular-nums text-slate-200">{tickSeconds} s</dd>
+          <dd className="tabular-nums text-slate-800">{tickSeconds} s</dd>
           <dt className="text-slate-500">Time limit</dt>
-          <dd className="tabular-nums text-slate-200">{maxTicks} ticks ({Math.round((maxTicks * tickSeconds) / 60)} min)</dd>
+          <dd className="tabular-nums text-slate-800">{maxTicks} ticks ({Math.round((maxTicks * tickSeconds) / 60)} min)</dd>
         </dl>
       </Card>
 
       <Card title="Backend">
-        <p className="text-sm text-slate-300">
-          API at <code className="text-slate-200">{API_BASE}</code>:{" "}
-          {health.state === "checking" && <span className="text-slate-400">checking…</span>}
-          {health.state === "ok" && <span className="text-green-400">reachable (v{health.version})</span>}
-          {health.state === "down" && <span className="text-red-400">not reachable — {health.message}</span>}
+        <p className="text-sm text-slate-700">
+          API at <code className="text-slate-800">{API_BASE}</code>:{" "}
+          {health.state === "checking" && <span className="text-slate-500">checking…</span>}
+          {health.state === "ok" && <span className="text-green-700">reachable (v{health.version})</span>}
+          {health.state === "down" && <span className="text-red-600">not reachable — {health.message}</span>}
         </p>
       </Card>
 
       <Card title="What this prototype is not">
-        <ul className="list-inside list-disc space-y-1 text-sm text-slate-400">
+        <ul className="list-inside list-disc space-y-1 text-sm text-slate-500">
           <li>Not a live emergency-response system — it never issues real evacuation instructions.</li>
           <li>Not validated against real human behavior — speeds and congestion are documented, simplified models.</li>
           <li>Not machine learning — routing is Dijkstra; the alternative plan is a greedy load-balancing heuristic.</li>

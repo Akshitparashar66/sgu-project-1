@@ -18,7 +18,7 @@ const scenario: ScenarioConfig = {
 function stubActions(): AegisActions {
   return {
     loadScenario: vi.fn(), run: vi.fn(), generatePlan: vi.fn(), toggleEdge: vi.fn(), toggleShelter: vi.fn(),
-    clearOverrides: vi.fn(), setSeed: vi.fn(), select: vi.fn(), reset: vi.fn(),
+    clearOverrides: vi.fn(), applyChanges: vi.fn(), setSeed: vi.fn(), select: vi.fn(), reset: vi.fn(),
   };
 }
 

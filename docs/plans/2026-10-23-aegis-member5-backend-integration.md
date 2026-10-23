@@ -1,7 +1,6 @@
 # AEGIS — Member 5: Backend & Integration Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use `superpowers:executing-plans`.
-> **Recommended tool:** Claude Code.
+> Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** The FastAPI app itself (CORS, structured errors), the scenario
 file loader every other backend module depends on, the `compare_runs`

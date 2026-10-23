@@ -17,7 +17,7 @@ export function ZoneLayer({ zones, nodeById, selection, onSelect }: LayerContext
         // Hollow ring sized like an agent cluster of the same headcount, so
         // "people who left" and "people who were here" compare by eye.
         radius={clusterRadius(zone.evacueeCount)}
-        pathOptions={{ color: selected ? "#f8fafc" : ZONE_COLOR, weight: selected ? 3 : 2, fillOpacity: 0.08 }}
+        pathOptions={{ color: selected ? "#0f172a" : ZONE_COLOR, weight: selected ? 3 : 2, fillOpacity: 0.08 }}
         eventHandlers={{ click: () => onSelect?.({ kind: "zone", id: zone.id }) }}
       >
         <Tooltip direction="bottom" offset={[0, clusterRadius(zone.evacueeCount)]} permanent className="aegis-label">

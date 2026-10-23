@@ -32,6 +32,9 @@ class _AgentState:
     edge_index: int = 0
     ticks_remaining_on_edge: int = 0
     arrival_tick: int | None = None
+    # Reached its shelter's door and found it full. Distinct from running out
+    # of time on the way, which also ends UNSERVED but was never turned away.
+    rejected: bool = False
     entry_ticks: list[int] = field(default_factory=list)
     exit_ticks: list[int] = field(default_factory=list)
 
@@ -133,6 +136,7 @@ def simulate(
                 a.arrival_tick = tick
             else:
                 a.status = AgentStatus.UNSERVED
+                a.rejected = True
 
         tick += 1
 
@@ -156,10 +160,7 @@ def simulate(
     shelter_results = [
         ShelterResult(
             shelter_id=s.id, total_capacity=s.total_capacity, final_occupied=s.occupied,
-            rejected_count=sum(
-                1 for a in agents
-                if a.plan.assigned_shelter == s.id and a.status == AgentStatus.UNSERVED
-            ),
+            rejected_count=sum(1 for a in agents if a.plan.assigned_shelter == s.id and a.rejected),
         )
         for s in shelters_by_id.values()
     ]

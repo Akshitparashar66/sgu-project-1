@@ -14,19 +14,19 @@ export function ResultsDrawer({ result, tickSeconds }: ResultsDrawerProps) {
 
   if (!result) {
     return (
-      <div className="border-t border-slate-800 bg-slate-900 p-4 text-sm text-slate-500">
+      <div className="border-t border-slate-200 bg-white p-4 text-sm text-slate-500">
         Run a simulation to see results here.
       </div>
     );
   }
 
   return (
-    <div className={`shrink-0 border-t border-slate-800 bg-slate-900 transition-all ${collapsed ? "h-10 overflow-hidden" : "max-h-72 overflow-y-auto"}`}>
+    <div className={`shrink-0 border-t border-slate-200 bg-white transition-all ${collapsed ? "h-10 overflow-hidden" : "max-h-72 overflow-y-auto"}`}>
       <button
         type="button"
         onClick={() => setCollapsed((c) => !c)}
         aria-expanded={!collapsed}
-        className="flex w-full items-center justify-between px-4 py-2 text-sm text-slate-300 hover:bg-slate-800/50"
+        className="flex w-full items-center justify-between px-4 py-2 text-sm text-slate-700 hover:bg-slate-100"
       >
         <span>Results — {result.planLabel} · seed {result.randomSeed}</span>
         <span>{collapsed ? "Expand" : "Collapse"}</span>
@@ -51,16 +51,16 @@ export function ResultsDrawer({ result, tickSeconds }: ResultsDrawerProps) {
             <h3 className="mb-1 text-xs uppercase tracking-wide text-slate-500">Shelter occupancy</h3>
             <ul className="flex flex-wrap gap-3 text-sm">
               {result.shelters.map((s) => (
-                <li key={s.shelterId} className="rounded border border-slate-700 px-2 py-1">
+                <li key={s.shelterId} className="rounded border border-slate-200 px-2 py-1">
                   {s.shelterId}: {formatOccupancy(s.finalOccupied, s.totalCapacity)}
-                  {s.rejectedCount > 0 && <span className="ml-1 text-amber-400">({s.rejectedCount} rejected)</span>}
+                  {s.rejectedCount > 0 && <span className="ml-1 text-amber-700">({s.rejectedCount} rejected)</span>}
                 </li>
               ))}
             </ul>
           </div>
 
           {result.warnings.length > 0 && (
-            <div role="alert" className="col-span-2 text-xs text-amber-400 sm:col-span-4">
+            <div role="alert" className="col-span-2 text-xs text-amber-700 sm:col-span-4">
               {result.warnings.length} warning(s) — e.g. &quot;{result.warnings[0]}&quot;
             </div>
           )}
@@ -71,11 +71,11 @@ export function ResultsDrawer({ result, tickSeconds }: ResultsDrawerProps) {
 }
 
 function StatTile({ label, value, tone }: { label: string; value: string | number; tone: "good" | "bad" | "warn" }) {
-  const toneClass = tone === "good" ? "text-green-400" : tone === "bad" ? "text-red-400" : "text-amber-400";
+  const toneClass = tone === "good" ? "text-green-700" : tone === "bad" ? "text-red-600" : "text-amber-700";
   return (
-    <div className="rounded-lg border border-slate-800 bg-slate-950/50 p-3">
+    <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
       <div className="text-xs uppercase tracking-wide text-slate-500">{label}</div>
-      <div className={`text-xl font-semibold ${toneClass}`}>{value}</div>
+      <div className={`font-mono text-xl font-semibold tabular-nums ${toneClass}`}>{value}</div>
     </div>
   );
 }

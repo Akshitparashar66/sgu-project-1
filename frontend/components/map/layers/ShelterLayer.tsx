@@ -19,7 +19,7 @@ export function ShelterLayer({ shelters, occupancyByShelterId, nodeById, selecti
         key={shelter.id}
         center={[node.lat, node.lon]}
         radius={selected ? 13 : 10}
-        pathOptions={{ color: selected ? "#f8fafc" : color, fillColor: color, fillOpacity: 0.85 }}
+        pathOptions={{ color: selected ? "#0f172a" : color, fillColor: color, fillOpacity: 0.85 }}
         eventHandlers={{ click: () => onSelect?.({ kind: "shelter", id: shelter.id }) }}
       >
         <Tooltip direction="right" permanent className="aegis-label">

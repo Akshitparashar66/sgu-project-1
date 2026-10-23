@@ -1,8 +1,6 @@
 # AEGIS — Member 6: QA, Metrics & Pitch Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use `superpowers:executing-plans`.
-> **Recommended tool:** Claude Code for the test suite; the pitch deck is a
-> presentation artifact, built separately once the demo works.
+> The pitch deck is a presentation artifact, built separately once the demo works.
 
 **Goal:** The two derived fixture scenarios (B, C), the acceptance-test
 suite that proves all three scenarios behave as the PRD claims they must
@@ -360,7 +358,7 @@ cd frontend && npx vitest run
 
 ## Project layout
 
-See `docs/superpowers/plans/2026-10-23-aegis-master-plan.md` §9 (if kept
+See `docs/plans/2026-10-23-aegis-master-plan.md` §9 (if kept
 alongside this repo) for the full file structure and the shared
 API/data contracts every module implements against.
 ```

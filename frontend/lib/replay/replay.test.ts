@@ -51,6 +51,19 @@ describe("replay", () => {
     expect(frame(replay, 3, "on-time")).toMatchObject({ lon: 2, status: "arrived" });
   });
 
+  it("follows a road's street geometry, reversed when the road is walked target to source", () => {
+    // E2 (stored N3 -> N2) bends north through (1, 1.5); walked N2 -> N3 the bend comes first.
+    const curved = {
+      ...scenario,
+      edges: scenario.edges.map((e) => (e.id === "E2" ? { ...e, geometry: [[0, 2], [1, 1.5], [0, 1]] as [number, number][] } : e)),
+    };
+    const replay = buildReplay(curved, run([onTime]));
+
+    expect(frame(replay, 2, "on-time").lat).toBeCloseTo(1);   // halfway along E2 = the bend, off the straight line
+    expect(frame(replay, 2, "on-time").lon).toBeCloseTo(1.5);
+    expect(frame(replay, 3, "on-time")).toMatchObject({ lat: 0, lon: 2 });
+  });
+
   it("marks agents delayed while an edge takes longer than free-flow", () => {
     const replay = buildReplay(scenario, run([jammed]));
 

@@ -167,3 +167,5 @@ def test_max_ticks_limit_marks_remaining_agents_unserved_with_warning():
     assert result.metrics.unserved_count == 1
     assert result.metrics.completion_tick is None
     assert len(result.warnings) == 1
+    # Still walking at the limit is not the same as being turned away at the door.
+    assert result.shelters[0].rejected_count == 0

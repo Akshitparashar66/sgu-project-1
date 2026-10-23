@@ -1,6 +1,9 @@
 from fastapi import APIRouter, Body
 from pydantic import ValidationError
 
+from app.ai.briefing import BriefingRequest, build_briefing
+from app.ai.llm import MODELS, PROVIDER, ai_configured
+from app.ai.whatif import WhatIfRequest, interpret_what_if
 from app.api.errors import AegisError, validation_errors_to_fields
 from app.models.schemas import ComparisonResult, RunResult, ScenarioConfig
 from app.optimization.planner import OptimizationRequest, generate_alternative_plan
@@ -91,3 +94,32 @@ def optimize(request: OptimizationRequest) -> dict:
 @router.post("/simulations/compare", response_model=ComparisonResult)
 def compare(request: CompareRequest) -> ComparisonResult:
     return compare_runs(request)
+
+
+@router.get("/ai/status")
+def ai_status() -> dict:
+    return {"configured": ai_configured(), "provider": PROVIDER, "model": MODELS[0], "fallbackModels": MODELS[1:]}
+
+
+@router.post("/ai/briefing")
+def ai_briefing(request: BriefingRequest) -> dict:
+    """Plain-language briefing of the run the UI is showing (same scenario,
+    overrides and seed). Falls back to a fixed-sentence summary when Gemini
+    is unavailable or writes a number the run doesn't contain."""
+    scenario = get_scenario(request.scenario_id)
+    if scenario is None:
+        raise _scenario_not_found(request.scenario_id)
+    try:
+        return build_briefing(request, scenario)
+    except InvalidOverrideError as exc:
+        raise _invalid_override(exc) from exc
+
+
+@router.post("/ai/what-if")
+def ai_what_if(request: WhatIfRequest) -> dict:
+    """Typed what-if question -> proposed road/shelter changes, for the
+    planner to confirm before anything runs."""
+    scenario = get_scenario(request.scenario_id)
+    if scenario is None:
+        raise _scenario_not_found(request.scenario_id)
+    return interpret_what_if(request, scenario)

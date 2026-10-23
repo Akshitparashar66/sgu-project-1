@@ -15,10 +15,10 @@ export interface ChartSeries {
   points: ArrivalsPoint[];
 }
 
-// Chart chrome on the slate-900 surface: hairline solid grid, muted ink for
+// Chart chrome on the white surface: hairline solid grid, muted ink for
 // axes; text never wears a series color (dataviz marks-and-anatomy).
-const GRID = "#1e293b";
-const AXIS = "#334155";
+const GRID = "#eef2f6";
+const AXIS = "#cbd5e1";
 const MUTED_INK = "#64748b";
 
 function formatMinutes(minutes: number): string {
@@ -32,16 +32,16 @@ function ChartTooltip({ active, payload, label, series }: {
 }) {
   if (!active || !payload?.length) return null;
   return (
-    <div className="rounded-md border border-slate-700 bg-slate-950/95 px-3 py-2 text-xs shadow-lg">
-      <div className="mb-1 text-slate-400">T+{formatMinutes(Number(label))}</div>
+    <div className="rounded-md border border-slate-200 bg-white/95 px-3 py-2 text-xs">
+      <div className="mb-1 text-slate-500">T+{formatMinutes(Number(label))}</div>
       {series.map((s) => {
         const entry = payload.find((p) => p.dataKey === s.id);
         if (!entry) return null;
         return (
           <div key={s.id} className="flex items-center gap-2">
             <span aria-hidden className="h-0.5 w-3" style={{ backgroundColor: s.color }} />
-            <span className="font-semibold tabular-nums text-slate-100">{String(entry.value)}</span>
-            <span className="text-slate-400">{s.label}</span>
+            <span className="font-semibold tabular-nums text-slate-900">{String(entry.value)}</span>
+            <span className="text-slate-500">{s.label}</span>
           </div>
         );
       })}
@@ -72,7 +72,7 @@ export const ArrivalsChart = memo(function ArrivalsChart({ series, total, cursor
   return (
     <figure>
       {!single && (
-        <ul className="mb-2 flex flex-wrap gap-4 text-xs text-slate-400" aria-label="Chart legend">
+        <ul className="mb-2 flex flex-wrap gap-4 text-xs text-slate-500" aria-label="Chart legend">
           {series.map((s) => (
             <li key={s.id} className="flex items-center gap-1.5">
               <span aria-hidden className="h-0.5 w-4" style={{ backgroundColor: s.color }} />
@@ -108,16 +108,16 @@ export const ArrivalsChart = memo(function ArrivalsChart({ series, total, cursor
                 <Area
                   key={s.id} dataKey={s.id} name={s.label} type="stepAfter"
                   stroke={s.color} strokeWidth={2} fill={s.color} fillOpacity={0.1}
-                  dot={false} activeDot={{ r: 4, stroke: "#0f172a", strokeWidth: 2 }} isAnimationActive={false}
+                  dot={false} activeDot={{ r: 4, stroke: "#ffffff", strokeWidth: 2 }} isAnimationActive={false}
                 />
               ) : (
                 <Line
                   key={s.id} dataKey={s.id} name={s.label} type="stepAfter"
                   stroke={s.color} strokeWidth={2} dot={false}
-                  activeDot={{ r: 4, stroke: "#0f172a", strokeWidth: 2 }} isAnimationActive={false}
+                  activeDot={{ r: 4, stroke: "#ffffff", strokeWidth: 2 }} isAnimationActive={false}
                   label={({ index, x, y }: { index?: number; x?: number | string; y?: number | string }) =>
                     endLabels && index === lastIndex ? (
-                      <text key={s.id} x={Number(x) + 8} y={Number(y)} dy={4} fill="#cbd5e1" fontSize={11}>{s.label}</text>
+                      <text key={s.id} x={Number(x) + 8} y={Number(y)} dy={4} fill="#334155" fontSize={11}>{s.label}</text>
                     ) : <g key={`${s.id}-${index}`} />
                   }
                 />
@@ -126,11 +126,11 @@ export const ArrivalsChart = memo(function ArrivalsChart({ series, total, cursor
           </ComposedChart>
         </ResponsiveContainer>
       </div>
-      <details className="mt-2 text-xs text-slate-400">
-        <summary className="cursor-pointer select-none hover:text-slate-200">Show as table</summary>
+      <details className="mt-2 text-xs text-slate-500">
+        <summary className="cursor-pointer select-none hover:text-slate-800">Show as table</summary>
         <div className="mt-2 max-h-48 overflow-y-auto">
           <table className="w-full text-left tabular-nums">
-            <thead className="sticky top-0 bg-slate-900 text-slate-500">
+            <thead className="sticky top-0 bg-white text-slate-500">
               <tr>
                 <th scope="col" className="py-1 font-medium">Time</th>
                 {series.map((s) => <th key={s.id} scope="col" className="py-1 text-right font-medium">{s.label}</th>)}
@@ -138,9 +138,9 @@ export const ArrivalsChart = memo(function ArrivalsChart({ series, total, cursor
             </thead>
             <tbody>
               {rows.map((row) => (
-                <tr key={row.minutes} className="border-t border-slate-800">
+                <tr key={row.minutes} className="border-t border-slate-200">
                   <td className="py-0.5">T+{formatMinutes(row.minutes)}</td>
-                  {series.map((s) => <td key={s.id} className="py-0.5 text-right text-slate-300">{row[s.id]}</td>)}
+                  {series.map((s) => <td key={s.id} className="py-0.5 text-right text-slate-700">{row[s.id]}</td>)}
                 </tr>
               ))}
             </tbody>
