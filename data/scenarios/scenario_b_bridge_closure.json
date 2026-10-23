@@ -1,0 +1,36 @@
+{
+  "id": "scenario_b_bridge_closure",
+  "name": "Critical Bridge Closure",
+  "description": "Scenario A with the N3-N4 bridge (E3) closed — the only route from the hazard-adjacent junction to Shelter S1.",
+  "synthetic": true,
+  "nodes": [
+    { "id": "N1", "lat": 16.700, "lon": 74.230, "label": "Zone A connector" },
+    { "id": "N2", "lat": 16.705, "lon": 74.235, "label": "Central junction" },
+    { "id": "N3", "lat": 16.710, "lon": 74.240, "label": "Hazard-adjacent junction" },
+    { "id": "N4", "lat": 16.715, "lon": 74.245, "label": "Shelter S1 connector" },
+    { "id": "N5", "lat": 16.702, "lon": 74.242, "label": "Shelter S3 connector" },
+    { "id": "N6", "lat": 16.720, "lon": 74.250, "label": "Shelter S2 connector" }
+  ],
+  "edges": [
+    { "id": "E1", "source": "N1", "target": "N2", "length_m": 900,  "capacity_per_tick": 40, "base_travel_time_s": 90,  "status": "open",   "hazard_risk": 0.0 },
+    { "id": "E2", "source": "N2", "target": "N3", "length_m": 700,  "capacity_per_tick": 35, "base_travel_time_s": 70,  "status": "open",   "hazard_risk": 0.2 },
+    { "id": "E3", "source": "N3", "target": "N4", "length_m": 500,  "capacity_per_tick": 20, "base_travel_time_s": 60,  "status": "closed", "hazard_risk": 0.1 },
+    { "id": "E4", "source": "N2", "target": "N5", "length_m": 600,  "capacity_per_tick": 30, "base_travel_time_s": 65,  "status": "open",   "hazard_risk": 0.0 },
+    { "id": "E5", "source": "N5", "target": "N6", "length_m": 1100, "capacity_per_tick": 25, "base_travel_time_s": 100, "status": "open",   "hazard_risk": 0.0 },
+    { "id": "E6", "source": "N4", "target": "N6", "length_m": 800,  "capacity_per_tick": 20, "base_travel_time_s": 85,  "status": "open",   "hazard_risk": 0.0 },
+    { "id": "E7", "source": "N1", "target": "N5", "length_m": 1000, "capacity_per_tick": 30, "base_travel_time_s": 95,  "status": "open",   "hazard_risk": 0.0 }
+  ],
+  "zones": [
+    { "id": "Z1", "name": "Riverside Colony", "connector_node": "N1", "evacuee_count": 300, "movement_profile": { "standard": 0.8, "reduced_mobility": 0.2 } },
+    { "id": "Z2", "name": "Market Ward",     "connector_node": "N2", "evacuee_count": 450, "movement_profile": { "standard": 0.85, "reduced_mobility": 0.15 } }
+  ],
+  "shelters": [
+    { "id": "S1", "name": "Highland School", "connector_node": "N4", "total_capacity": 250, "occupied": 0, "available": true },
+    { "id": "S2", "name": "Community Hall",  "connector_node": "N6", "total_capacity": 300, "occupied": 0, "available": true },
+    { "id": "S3", "name": "Sports Complex",  "connector_node": "N5", "total_capacity": 200, "occupied": 0, "available": true }
+  ],
+  "hazards": [
+    { "id": "H1", "polygon": [[16.708, 74.238], [16.712, 74.238], [16.712, 74.243], [16.708, 74.243]], "severity": 0.6, "start_tick": 0, "end_tick": null }
+  ],
+  "default_params": { "tick_seconds": 30, "max_ticks": 240, "random_seed": 42 }
+}
