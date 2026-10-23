@@ -5,6 +5,7 @@ from app.api.errors import AegisError, validation_errors_to_fields
 from app.models.schemas import ComparisonResult, RunResult, ScenarioConfig
 from app.optimization.planner import OptimizationRequest, generate_alternative_plan
 from app.services.comparison import CompareRequest, compare_runs
+from app.services.scenario_overrides import InvalidOverrideError
 from app.services.scenario_store import get_scenario, list_scenarios
 from app.services.scenario_validation import reference_errors, scenario_summary
 from app.simulation.engine import RunRequest, run_simulation
@@ -63,10 +64,16 @@ def scenario_detail(scenario_id: str) -> ScenarioConfig:
     return scenario
 
 
+def _invalid_override(exc: InvalidOverrideError) -> AegisError:
+    return AegisError("INVALID_OVERRIDE", str(exc), field=exc.field, status_code=400)
+
+
 @router.post("/simulations/run", response_model=RunResult)
 def run(request: RunRequest) -> RunResult:
     try:
         return run_simulation(request)
+    except InvalidOverrideError as exc:  # a ValueError subclass — must be caught first
+        raise _invalid_override(exc) from exc
     except ValueError as exc:
         raise AegisError("SCENARIO_NOT_FOUND", str(exc), field="scenario_id", status_code=404) from exc
 
@@ -75,7 +82,10 @@ def run(request: RunRequest) -> RunResult:
 def optimize(request: OptimizationRequest) -> dict:
     if get_scenario(request.scenario_id) is None:
         raise _scenario_not_found(request.scenario_id)
-    return generate_alternative_plan(request)
+    try:
+        return generate_alternative_plan(request)
+    except InvalidOverrideError as exc:
+        raise _invalid_override(exc) from exc
 
 
 @router.post("/simulations/compare", response_model=ComparisonResult)

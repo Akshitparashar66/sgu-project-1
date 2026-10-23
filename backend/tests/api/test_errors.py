@@ -51,3 +51,16 @@ def test_unexpected_failure_returns_a_structured_500_without_a_stack_trace(monke
     assert body["errorCode"] == "INTERNAL_ERROR"
     assert "internal detail" not in response.text
     assert "Traceback" not in response.text
+
+
+def test_unknown_override_id_returns_a_structured_400():
+    response = client.post("/api/simulations/run", json={"scenarioId": "scenario_a_normal", "closedEdgeIds": ["E99"]})
+    assert response.status_code == 400
+    body = response.json()
+    assert body["errorCode"] == "INVALID_OVERRIDE"
+    assert body["field"] == "closedEdgeIds"
+    assert "E99" in body["message"]
+
+    response = client.post("/api/optimization/plan", json={"scenarioId": "scenario_a_normal", "unavailableShelterIds": ["S9"]})
+    assert response.status_code == 400
+    assert response.json()["errorCode"] == "INVALID_OVERRIDE"

@@ -2,10 +2,13 @@ from __future__ import annotations
 
 import uuid
 
+from pydantic import Field
+
 from app.models.schemas import AgentPlan, CamelModel, RunMetrics, ScenarioConfig
 from app.routing.assignment import assign_shelters_and_routes, build_demand_units
 from app.routing.congestion import CongestionModel
 from app.routing.graph import build_graph, compute_shortest_route
+from app.services.scenario_overrides import apply_overrides
 from app.simulation.engine import simulate
 
 
@@ -13,6 +16,10 @@ class OptimizationRequest(CamelModel):
     # CamelModel so the frontend can POST {"scenarioId": "..."} directly.
     scenario_id: str
     random_seed: int = 42
+    # Same what-if overrides as RunRequest, so the alternative plan is
+    # computed for the scenario the planner is actually looking at.
+    closed_edge_ids: list[str] = Field(default_factory=list)
+    unavailable_shelter_ids: list[str] = Field(default_factory=list)
 
 
 def _k_nearest_balanced_assignment(
@@ -79,6 +86,7 @@ def generate_alternative_plan(request: OptimizationRequest) -> dict:
     if scenario is None:
         return {"feasible": False, "reason": f"Unknown scenario_id '{request.scenario_id}'",
                 "changes": [], "tradeOffs": []}
+    scenario = apply_overrides(scenario, request.closed_edge_ids, request.unavailable_shelter_ids)
 
     graph = build_graph(scenario)
     # Both runs use the requested seed, and RunResult.random_seed reports it
