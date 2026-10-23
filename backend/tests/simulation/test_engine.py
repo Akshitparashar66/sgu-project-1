@@ -73,6 +73,26 @@ def test_agent_with_no_route_is_unserved_immediately():
     assert result.agents[0].arrival_tick is None
 
 
+def test_unassigned_agents_get_a_traceable_warning_per_origin_zone():
+    # "Agents never disappear": an agent the planner could not place must
+    # still have a reason on record — it is not a shelter rejection, so
+    # rejected_count can't carry it; the warnings list must.
+    scenario = _tiny_scenario()
+    plans = [
+        AgentPlan(agent_id=f"A{i}", origin_zone="Z1", assigned_shelter=None,
+                  route_edge_ids=[], movement_profile="standard", distance_m=0)
+        for i in range(3)
+    ]
+    congestion = FakeCongestionModel({e.id: e for e in scenario.edges})
+    params = SimulationParams(tick_seconds=30, max_ticks=10, random_seed=42)
+
+    result = simulate(scenario, plans, params, congestion, plan_label="baseline")
+
+    assert result.shelters[0].rejected_count == 0
+    assert len(result.warnings) == 1
+    assert "3 agents from zone Z1" in result.warnings[0]
+
+
 def test_shelter_capacity_is_never_exceeded():
     scenario = _tiny_scenario()  # S1 total_capacity=1
     plans = [

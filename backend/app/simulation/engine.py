@@ -54,10 +54,18 @@ def simulate(
     delay_by_edge: dict[str, float] = {}
 
     # Agents with no feasible route are unserved from tick 0 — never
-    # silently dropped (PRD §6.3).
+    # silently dropped (PRD §6.3). They were never turned away at a shelter
+    # door, so rejected_count can't explain them; a per-zone warning does.
+    unassigned_by_zone: dict[str, int] = {}
     for a in agents:
         if a.plan.assigned_shelter is None or not a.plan.route_edge_ids:
             a.status = AgentStatus.UNSERVED
+            unassigned_by_zone[a.plan.origin_zone] = unassigned_by_zone.get(a.plan.origin_zone, 0) + 1
+    warnings: list[str] = [
+        f"{count} agents from zone {zone_id} had no feasible shelter assignment "
+        f"(no reachable shelter with remaining capacity)"
+        for zone_id, count in unassigned_by_zone.items()
+    ]
 
     tick = 0
     hit_tick_limit = False
@@ -121,7 +129,6 @@ def simulate(
 
         tick += 1
 
-    warnings: list[str] = []
     for a in agents:
         if _active(a):
             a.status = AgentStatus.UNSERVED
