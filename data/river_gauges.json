@@ -1,0 +1,14 @@
+{
+  "note": "Warning and danger levels must come from the district or the Central Water Commission. They are left empty on purpose: AEGIS does not guess flood levels. Set them in the app (Overview > River level).",
+  "gauges": [
+    {
+      "id": "hindon",
+      "name": "Hindon river, Ghaziabad stretch",
+      "river": "Hindon",
+      "warningLevelM": null,
+      "dangerLevelM": null,
+      "floodScenarioId": "scenario_d_hindon_flood",
+      "readingSource": "Enter the level from the CWC flood forecast (ffs.india-water.gov.in) or a district gauge, or connect a feed with AEGIS_RIVER_FEED_URL."
+    }
+  ]
+}

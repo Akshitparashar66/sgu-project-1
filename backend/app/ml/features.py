@@ -26,6 +26,11 @@ FEATURE_NAMES = [
     "first_edge_load_ratio",
     "share_not_at_nearest_shelter",
     "mean_hazard_on_route",
+    "time_limit_min",
+    "share_on_flooding_roads",
+    "first_flood_min",
+    "latest_shelter_opening_min",
+    "slowest_door_min",
 ]
 
 
@@ -104,6 +109,19 @@ def scenario_features(scenario: ScenarioConfig, random_seed: int | None = None) 
     off_nearest = sum(1 for p in routed if p.assigned_shelter != nearest_shelter[p.origin_zone])
     ratios = [n / edges[e].capacity_per_tick for e, n in load.items()]
 
+    # Roads that flood mid-run, and shelters that open late or register slowly.
+    limit_min = scenario.default_params.max_ticks * tick_minutes
+    floods = {e.id: e.closes_at_tick for e in scenario.edges if e.closes_at_tick is not None}
+    on_flooding = sum(1 for p in routed if floods.keys() & set(p.route_edge_ids))
+    first_flood = min((floods[e] for p in routed for e in p.route_edge_ids if e in floods), default=None)
+    shelters = {s.id: s for s in scenario.shelters}
+    assigned: dict[str, int] = {}
+    for p in routed:
+        assigned[p.assigned_shelter] = assigned.get(p.assigned_shelter, 0) + 1
+    latest_opening = max((shelters[s].opens_at_tick for s in assigned), default=0) * tick_minutes
+    slowest_door = max((n / shelters[s].intake_per_tick for s, n in assigned.items() if shelters[s].intake_per_tick),
+                       default=0.0) * tick_minutes
+
     total_length = sum(e.length_m for e in scenario.edges)
     total_time = sum(e.base_travel_time_s for e in scenario.edges)
 
@@ -125,4 +143,9 @@ def scenario_features(scenario: ScenarioConfig, random_seed: int | None = None) 
         max((n / edges[e].capacity_per_tick for e, n in first_load.items()), default=0.0),
         off_nearest / len(routed) if routed else 0.0,
         hazard / len(routed) if routed else 0.0,
+        limit_min,
+        on_flooding / len(routed) if routed else 0.0,
+        first_flood * tick_minutes if first_flood is not None else limit_min,
+        latest_opening,
+        slowest_door,
     ]

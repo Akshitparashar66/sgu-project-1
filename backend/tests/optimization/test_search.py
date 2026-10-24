@@ -16,7 +16,7 @@ def flood_plan():
 def test_optimizer_houses_the_flood_evacuees_the_baseline_runs_out_of_time_for(flood_plan):
     base, alt = flood_plan["baselineRun"]["metrics"], flood_plan["alternativeRun"]["metrics"]
     assert flood_plan["feasible"] is True
-    assert base["unservedCount"] == 50 and base["hitTickLimit"] is True
+    assert base["unservedCount"] == 118 and base["hitTickLimit"] is True
     assert alt["unservedCount"] == 0 and alt["completionTick"] is not None
 
 
@@ -56,10 +56,33 @@ def test_staged_departures_respect_the_wave_schedule():
 
 
 def test_capacity_repair_keeps_unserved_at_the_shelter_capacity_limit():
-    # Compound failure: 1,500 evacuees, 1,450 shelter places. Coarse blocks
-    # must not turn away anyone a per-person plan could house.
-    plan = generate_alternative_plan(OptimizationRequest(scenario_id="scenario_f_compound_failure", random_seed=7))
-    assert plan["alternativeRun"]["metrics"]["unservedCount"] == 50
+    # Compound failure without its standby hall: 1,500 evacuees, 1,450 places.
+    # Coarse blocks must not turn away anyone a per-person plan could house.
+    scenario = get_scenario("scenario_f_compound_failure").model_copy(deep=True)
+    scenario.shelters = [s for s in scenario.shelters if not s.standby]
+    result = optimize_plan(scenario, build_graph(scenario), scenario.default_params, 7)
+    assert result.predicted.unserved == 50
+
+
+def test_the_optimizer_opens_the_standby_hall_when_places_run_short():
+    # Shelter shortage: 220 people have no place unless the standby hall is opened.
+    plan = generate_alternative_plan(OptimizationRequest(scenario_id="scenario_c_shelter_shortage"))
+    assert plan["baselineRun"]["metrics"]["unservedCount"] == 220
+    assert plan["interventions"]["openedShelters"][0]["shelterId"] == "S4"
+    assert plan["alternativeRun"]["metrics"]["unservedCount"] == 0
+    assert any("opens standby shelter" in t for t in plan["tradeOffs"])
+
+
+def test_marshals_raise_a_roads_intake_and_never_exceed_the_teams_available():
+    from app.optimization.search import MARSHAL_CAPACITY_FACTOR, Levers, apply_levers
+
+    scenario = get_scenario("scenario_a_normal")
+    marshalled = apply_levers(scenario, Levers(marshals=frozenset({"E4"})))
+    before = next(e for e in scenario.edges if e.id == "E4").capacity_per_tick
+    assert next(e for e in marshalled.edges if e.id == "E4").capacity_per_tick == round(before * MARSHAL_CAPACITY_FACTOR)
+    for scenario in (get_scenario("scenario_e_night_vulnerable"), get_scenario("scenario_b_bridge_closure")):
+        result = optimize_plan(scenario, build_graph(scenario), scenario.default_params, 42)
+        assert len(result.levers.marshals) <= scenario.marshal_teams
 
 
 def test_blocks_split_each_group_into_near_equal_parts():
@@ -67,3 +90,29 @@ def test_blocks_split_each_group_into_near_equal_parts():
     assert size == 10
     assert sorted(b.count for b in blocks if b.movement_profile == "standard") == [10] * 13
     assert [b.count for b in blocks if b.movement_profile == "reduced_mobility"] == [9]
+
+
+def test_robustness_reports_paired_ranges_for_both_plans(flood_plan):
+    r = flood_plan["robustness"]
+    assert r["variations"] == 40 and r["assumptions"]
+    for plan in ("baseline", "optimized"):
+        clearance = r[plan]["clearanceMinutes"]
+        assert clearance["p10"] <= clearance["p50"] <= clearance["p90"]
+    assert 0 <= r["optimizedBetter"] <= 40
+    # The flood plan's advantage should survive realistic variation, not just the one nominal run.
+    assert r["optimizedBetter"] >= 30
+
+
+def test_no_plan_beats_the_clearance_lower_bound():
+    from app.optimization.bounds import clearance_lower_bound
+    from app.services.scenario_store import list_scenarios
+
+    for scenario in list_scenarios():
+        params = scenario.default_params
+        bound = clearance_lower_bound(scenario, params)
+        result = optimize_plan(scenario, build_graph(scenario), params, 42)
+        assert bound is not None and result.predicted.completion_tick >= bound, scenario.id
+
+
+def test_flood_plan_reports_the_lower_bound(flood_plan):
+    assert flood_plan["search"]["clearanceLowerBoundMinutes"] == 33.5

@@ -14,40 +14,51 @@ find out why before going on stage.
    Ghaziabad, evacuating on foot — the streets are real, the people, shelters and capacities
    are synthetic, and the header says so."
 2. **Press "Run simulation."** The results drawer fills: **1,500 evacuated, 0 unserved,
-   98m 0s, peak congestion 2.32×**. Point at the first finding: "Road E4 peaks at 2.3×
-   capacity — 900 evacuees routed over it." Say: "Everyone gets out on foot in just over an
-   hour and a half — and the bypass stretch by the sports ground carries more than twice
-   what it can."
+   59m 0s, peak congestion 2.32×**. Point at the first finding: "Road E4 peaks at 2.3×
+   capacity — 900 evacuees routed over it." Say: "Everyone gets out on foot in just under an
+   hour, but the bypass stretch by the sports ground has more than twice the people it can
+   take, so they queue."
 3. **Close the Gaur Cascades Rd link, in the Scenario Lab.** Click **Close** on road **E3**
    (between the hazard area and North RNE School Camp). Before you run anything, the
-   **Instant estimate** card updates: **~111 min clearance (±3), ~0 unserved, ~3.85× peak**.
+   **Instant estimate** card updates: **~72.4 min clearance (72.1–72.5), ~3.84× peak**.
    Say: "That's a machine-learning model trained on 6,400 simulated what-ifs. It answers as
-   you click, and it shows how far off it usually is." Now **Run with these changes**:
-   **0 unserved, 111m 30s, peak 3.85×**, and the card shows the simulation's numbers under
-   the estimate. Say: "Every shelter is still reachable, but it failed on time: 13.5 minutes
-   longer, with everyone funnelled down the bypass." (Same result as Scenario B.)
-4. **Open Live Simulation and press play** (4 ticks/s). Point at the amber crowds walking
-   the long way round via E5 and E6, the shelter meters filling, and the arrivals curve.
-   Say: "This is the bottleneck you'd otherwise discover during the real emergency."
-5. **Plan Comparison → "Generate alternative plan"** (about 2 seconds). **"Improvement
-   found": clearance 111.5 → 44.5 min, average time to shelter 73 → 34 min, peak congestion
-   3.85 → 1.33×, still 0 unserved.** Scroll to **Evacuation orders**: most slow walkers and part of
-   each zone leave **now**; the rest go in waves at **+5, +10 and +15 min**, spread over all
-   three shelters. Say: "The optimizer tried about a thousand plans: which shelter, which
-   road, and when each group leaves, scoring every one by simulating it. Then it re-ran the
-   winner on the same engine. Holding some people back for 5 to 15 minutes gets everyone in
-   over an hour sooner." Then **Live Simulation → Optimized plan** and press play: grey dots
-   wait at their zone until their wave, and the crowds never jam.
+   you click, with its own range." Now **Run with these changes**: **0 unserved, 72m 30s,
+   peak 3.85×**, and the card shows the simulation's numbers under the estimate. Say: "Every
+   shelter is still reachable, but it failed on time: 13.5 minutes longer, with everyone
+   funnelled down the bypass." (Same result as Scenario B.)
+4. **Open Live Simulation and press play** (4 ticks/s). Point at the amber dots waiting in
+   line at the bypass junctions, the crowds taking the long way round via E5 and E6, the
+   shelter meters filling, and the arrivals curve. Say: "This is the bottleneck you'd
+   otherwise discover during the real emergency."
+5. **Plan Comparison → "Optimize plan"** (about 5 seconds). **"Improvement found":
+   clearance 72.5 → 37 min, average walk 27.8 → 21.8 min, still 0 unserved.** Point at
+   **What the plan changes on the ground**: it opens the standby **Sports Ground Indoor
+   Hall**. Point at the line under it: **"No plan can clear in under 33.5 min"**. Say: "So
+   we're within 4 minutes of the best possible." Then **How robust is it?**: across 40
+   variations it clears in **33.5–43.5 min** against **64.5–81 min**, and wins **40 of 40**.
+   Click **Print orders (English / हिन्दी)**, switch to **हिन्दी**: the same orders,
+   wave by wave, with a signature line. Close it, then **Save this plan** with a name and
+   yours. Under **Reports → Saved plans**, approve it, and open the **Audit trail**. Say:
+   "Every save and approval is fingerprinted and logged."
 6. **Scenario D (Hindon river flood)** if time remains: pick it, **Run simulation** →
-   **50 unserved, time limit reached**: the Sihani lanes (E7) are flooded, so all 800
-   riverside residents walk the one bypass stretch (E1). Generate a plan: **everyone is
-   sheltered in 46 min.** Then **Scenario C** for contrast: **220 unserved** both before and
-   after optimizing. Say: "220 people have no shelter place; no routing or timing fixes
-   that. The tool tells you when the answer is more shelters, not a better plan."
-7. **If asked "how good is the estimate?":** point at the ± on each estimate
-   card and say: "90% of the model's test cases were within that range of the real
-   simulation. It learns our simulator, not real evacuations, and the Run button always
-   gives the real numbers."
+   **118 unserved, time limit reached**: the warning gives 50 minutes, the Sihani lanes (E7)
+   are under water, Gaur Cascades Rd (E2) floods 15 minutes in, and the school camp needs
+   10 minutes to open. In **Live Simulation**, watch E2 turn to "closed" at minute 15 and
+   the people in line re-route. Optimize: **everyone is sheltered in 37 min**. Then
+   **Scenario C**: **220 unserved**. Optimize: **0**, by opening the standby hall. Say:
+   "No route or timing could house those 220. The plan says the answer is another
+   building, and which one."
+7. **Weak points and the river.** Scenario Lab → **Find weak points**: losing the Community
+   Centre (S2) leaves **400** without a place, and losing the riverside bypass (E1) adds
+   **24.5 min**. Click **Try it** on one. On **Overview**, the **Hindon river level** card:
+   enter the district's warning and danger levels, record a reading above the warning level,
+   and it offers to **Open** the flood scenario. Say: "We don't guess flood levels: the
+   district sets them."
+   **If asked "how good is the estimate?":** "90% of its test estimates for changes like
+   these were within 1.2 minutes of the simulation, and each shows its own range. It learns
+   our simulator, not real evacuations; the Run button always gives the real numbers."
+   **If asked "can it use our data?":** Scenario Lab → **Use your own data** (ward and
+   shelter CSVs), and Scenario G shows the same area on all 841 streets.
 8. **Closing line (PRD §16.2):** "We don't wait for disasters to expose evacuation
    failures. We simulate them before lives are at risk."
 
@@ -65,11 +76,11 @@ draws on a dark background.)
   (gradient-boosted trees) that learned *this simulator*; it predicts nothing about real
   people. The **optimizer** is a search (simulated annealing) scored by the simulation, not
   machine learning; call it "a search-based optimizer". The **simulation** is rule-based.
-- Never call the optimized plan "optimal". It's the best of the ~1,000 plans the search
-  tried, and it's re-checked on the engine.
-- If a judge asks why staged waves help so much: the model has no queues, so a crowd kept
-  below a road's capacity flows freely. That's the real logic of phased evacuation, but the
-  real-world gain would be smaller (see `docs/ASSUMPTIONS.md`).
+- Never call the optimized plan "optimal" unless it meets the lower bound (as in G). Say
+  "within N minutes of the best possible", using the bound on screen.
+- If a judge asks how congestion works: each road lets in only as many people per minute as
+  its width carries, and the rest queue at the junction (a standard bottleneck model). It
+  doesn't model crowd crush or people slowing down in dense crowds.
 - The location is real (Raj Nagar Extension), the data is not: never claim real population,
   shelter or road-capacity figures — say "synthetic" every time it comes up.
 - Don't say Scenario B "leaves people stranded" — it doesn't; it makes the evacuation

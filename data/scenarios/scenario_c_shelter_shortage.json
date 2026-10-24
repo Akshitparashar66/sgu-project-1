@@ -27,10 +27,12 @@
   "shelters": [
     {"id": "S1", "name": "North RNE School Camp", "connector_node": "N4", "total_capacity": 80, "occupied": 0, "available": true},
     {"id": "S2", "name": "RNE Community Centre", "connector_node": "N6", "total_capacity": 700, "occupied": 0, "available": true},
-    {"id": "S3", "name": "NH-9 Bypass Sports Ground", "connector_node": "N5", "total_capacity": 500, "occupied": 0, "available": true}
+    {"id": "S3", "name": "NH-9 Bypass Sports Ground", "connector_node": "N5", "total_capacity": 500, "occupied": 0, "available": true},
+    {"id": "S4", "name": "Sports Ground Indoor Hall", "connector_node": "N5", "total_capacity": 300, "occupied": 0, "available": false, "standby": true, "opens_at_tick": 20}
   ],
   "hazards": [
     {"id": "H1", "polygon": [[28.7036, 77.424], [28.7066, 77.424], [28.7066, 77.4282], [28.7036, 77.4282]], "severity": 0.6, "start_tick": 0, "end_tick": null}
   ],
+  "marshal_teams": 2,
   "default_params": {"tick_seconds": 30, "max_ticks": 240, "random_seed": 42}
 }

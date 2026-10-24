@@ -78,7 +78,8 @@ export function EvacuationMap({
         <ShelterLayer shelters={scenario.shelters} occupancyByShelterId={occupancyByShelterId} {...context} />
       </MapContainer>
       <p className="pointer-events-none absolute left-16 top-3 z-[1000] rounded-md bg-white/90 px-2 py-1 text-[11px] text-slate-500">
-        Roads follow real streets (OpenStreetMap) · people, shelters and capacities are synthetic
+        Roads follow real streets (OpenStreetMap) ·{" "}
+        {scenario.synthetic ? "people, shelters and capacities are synthetic" : "people and shelters from uploaded data"}
       </p>
       <Legend ref={legendRef} />
     </div>

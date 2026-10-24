@@ -15,6 +15,20 @@ from app.simulation.engine import simulate
 SCENARIOS = list_scenarios()
 
 
+def _with_floods_and_slow_doors(scenario, rng: random.Random):
+    """Some roads flood mid-run and some shelters open late or admit slowly."""
+    s = scenario.model_copy(deep=True)
+    for e in s.edges:
+        if rng.random() < 0.3:
+            e.closes_at_tick = rng.randrange(0, 60)
+    for sh in s.shelters:
+        if rng.random() < 0.5:
+            sh.opens_at_tick = rng.randrange(0, 40)
+        if rng.random() < 0.5:
+            sh.intake_per_tick = rng.randrange(5, 120)
+    return s
+
+
 def _engine_metrics(scenario, plans):
     params = scenario.default_params
     run = simulate(scenario, plans, params, CongestionModel(scenario, params), plan_label="t")
@@ -24,6 +38,8 @@ def _engine_metrics(scenario, plans):
         "evacuated": m.evacuated_count, "unserved": m.unserved_count, "completion_tick": m.completion_tick,
         "hit_tick_limit": m.hit_tick_limit, "max_congestion_ratio": m.max_congestion_ratio,
         "rejected": sum(s.rejected_count for s in run.shelters),
+        "cut_off": sum(1 for w in run.warnings if "cut off" in w) and sum(
+            int(w.split()[0]) for w in run.warnings if "cut off" in w),
         "mean_arrival_tick": sum(arrived) / len(arrived) if arrived else 0.0,
     }
 
@@ -33,7 +49,7 @@ def _fast_metrics(scenario, plans):
     return {
         "evacuated": m.evacuated, "unserved": m.unserved, "completion_tick": m.completion_tick,
         "hit_tick_limit": m.hit_tick_limit, "max_congestion_ratio": m.max_congestion_ratio,
-        "rejected": m.rejected, "mean_arrival_tick": m.mean_arrival_tick,
+        "rejected": m.rejected, "mean_arrival_tick": m.mean_arrival_tick, "cut_off": m.cut_off,
     }
 
 
@@ -83,3 +99,48 @@ def test_staged_departure_waits_at_the_zone_until_its_tick():
     params = scenario.default_params
     run = simulate(scenario, late, params, CongestionModel(scenario, params), plan_label="t")
     assert all(a.edge_entry_ticks[0] == 12 and a.departure_tick == 12 for a in run.agents)
+
+
+@pytest.mark.parametrize("seed", range(8))
+def test_cohort_simulation_matches_the_engine_with_flooding_roads_and_slow_shelter_doors(seed):
+    rng = random.Random(100 + seed)
+    scenario = _with_floods_and_slow_doors(SCENARIOS[seed % len(SCENARIOS)], rng)
+    plans = _random_plans(scenario, rng)
+    assert _fast_metrics(scenario, plans) == _engine_metrics(scenario, plans)
+
+
+def test_people_re_route_round_a_flooded_road_and_are_cut_off_when_there_is_none():
+    scenario = get_scenario_copy("scenario_a_normal")
+    for e in scenario.edges:
+        if e.id == "E3":
+            e.closes_at_tick = 0  # the Gaur Cascades link floods at once
+    params = scenario.default_params
+    plans = assign_shelters_and_routes(scenario, build_graph(scenario), 42)  # planned before the flood
+    run = simulate(scenario, plans, params, CongestionModel(scenario, params), plan_label="t")
+    assert not any("E3" in a.route_edge_ids for a in run.agents)
+    assert run.metrics.unserved_count == 0
+
+    for e in scenario.edges:
+        e.closes_at_tick = 0  # every road floods: nobody can leave
+    run = simulate(scenario, plans, params, CongestionModel(scenario, params), plan_label="t")
+    assert run.metrics.evacuated_count == 0
+    assert any("cut off" in w for w in run.warnings)
+
+
+def test_a_shelter_that_opens_late_keeps_arrivals_waiting_at_the_door():
+    scenario = get_scenario_copy("scenario_a_normal")
+    for sh in scenario.shelters:
+        sh.opens_at_tick = 150
+        sh.intake_per_tick = 50
+    params = scenario.default_params
+    plans = assign_shelters_and_routes(scenario, build_graph(scenario), 42)
+    run = simulate(scenario, plans, params, CongestionModel(scenario, params), plan_label="t")
+    arrivals = sorted(a.arrival_tick for a in run.agents if a.arrival_tick is not None)
+    assert arrivals[0] == 150
+    # 3 shelters x 50 a tick: no tick admits more than 150.
+    assert max(arrivals.count(t) for t in set(arrivals)) <= 150
+
+
+def get_scenario_copy(scenario_id):
+    from app.services.scenario_store import get_scenario
+    return get_scenario(scenario_id).model_copy(deep=True)

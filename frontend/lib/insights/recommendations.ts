@@ -32,11 +32,16 @@ export function buildRecommendations(scenario: ScenarioConfig, run: RunResult): 
     .filter((s) => s.available)
     .reduce((sum, s) => sum + (s.totalCapacity - s.occupied), 0);
   const shortfall = Math.max(0, demand - capacity);
+  const standby = scenario.shelters.filter((s) => s.standby && !s.available);
+  const standbyPlaces = standby.reduce((sum, s) => sum + s.totalCapacity, 0);
+  const standbyNote = standbyPlaces > 0
+    ? ` Standby sites (${standby.map((s) => s.name).join(", ")}) hold ${standbyPlaces} more; Optimize plan opens them if that helps.`
+    : "";
   if (shortfall > 0) {
     recs.push({
       id: "capacity-shortfall", severity: "critical",
       title: `Shelter capacity shortfall: ${shortfall} evacuees have no place`,
-      detail: `Demand is ${demand} evacuees but only ${capacity} available shelter places exist. No routing change can fix this — open or reopen at least ${shortfall} places.`,
+      detail: `Demand is ${demand} evacuees but only ${capacity} available shelter places exist. No routing change can fix this — open or reopen at least ${shortfall} places.${standbyNote}`,
     });
   }
 

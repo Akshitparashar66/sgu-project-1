@@ -20,6 +20,9 @@ interface AgentTrack {
   origin: LatLon;
   destination: LatLon | null;
   legs: Leg[];
+  /** Roads on the planned route; more than legs.length = still in line for the next one. */
+  routeLength: number;
+  departureTick: number;
   arrivalTick: number | null;
   shelterId: string | null;
 }
@@ -73,6 +76,8 @@ export function buildReplay(scenario: ScenarioConfig, run: RunResult): Replay {
       origin: nodes.get(originId ?? "") ?? [0, 0],
       destination: shelterNodeId ? nodes.get(shelterNodeId) ?? null : null,
       legs,
+      routeLength: agent.routeEdgeIds.length,
+      departureTick: agent.departureTick ?? 0,
       arrivalTick: agent.arrivalTick ?? null,
       shelterId: agent.status === "arrived" ? agent.assignedShelter ?? null : null,
     };
@@ -97,20 +102,25 @@ function frameFor(track: AgentTrack, t: number, lastTick: number, jitter: boolea
     const [lat, lon] = track.destination ?? track.origin;
     return { id: track.id, lat, lon, status: "arrived" };
   }
-  if (track.legs.length === 0) {
-    return { id: track.id, lat: track.origin[0], lon: track.origin[1], status: "unserved" };
-  }
+  const at = ([lat, lon]: LatLon, status: AgentStatus): AgentFrame => ({ id: track.id, lat, lon, status });
+  // Off the roads: waiting for its departure wave, in line for a road (roads
+  // let in only their capacity per tick), or finished without a place.
+  const offRoad = (where: LatLon, stillGoing: boolean): AgentFrame => {
+    if (t < track.departureTick) return at(where, "waiting");
+    return at(where, stillGoing && t < lastTick ? "delayed" : "unserved");
+  };
+  if (track.routeLength === 0) return at(track.origin, "unserved");
+  if (track.legs.length === 0 || t <= track.legs[0].entry - 1) return offRoad(track.origin, true);
 
   // Leg i covers t in (entry - 1, exit]: progress reaches 1 exactly at its exit tick.
   const leg = track.legs.find((l) => t > l.entry - 1 && (l.exit === null || t <= l.exit));
   if (!leg) {
-    // Before departure (staged plans hold groups at their zone), or finished
-    // every leg without being admitted (shelter full).
-    if (t <= track.legs[0].entry - 1) {
-      return { id: track.id, lat: track.origin[0], lon: track.origin[1], status: "waiting" };
-    }
-    const [lat, lon] = track.legs[track.legs.length - 1].to;
-    return { id: track.id, lat, lon, status: "unserved" };
+    // Between roads (in line at a junction), or done with every road it got onto.
+    const done = track.legs.filter((l) => l.exit !== null && l.exit < t);
+    const last = done[done.length - 1];
+    // Still has roads to go, or is waiting outside a shelter it will get into.
+    const stillGoing = done.length < track.routeLength || track.arrivalTick !== null;
+    return offRoad(last.to, stillGoing);
   }
 
   const elapsed = t - leg.entry + 1;
@@ -176,4 +186,13 @@ export function arrivalsSeries(run: RunResult, tickSeconds: number, untilTick?: 
     series.push({ tick, minutes: (tick * tickSeconds) / 60, arrived: cumulative });
   }
   return series;
+}
+
+/** The scenario as it stands at tick t: roads that have flooded by then drawn as closed. */
+export function scenarioAt(scenario: ScenarioConfig, t: number): ScenarioConfig {
+  if (!scenario.edges.some((e) => e.closesAtTick != null && t >= e.closesAtTick)) return scenario;
+  return {
+    ...scenario,
+    edges: scenario.edges.map((e) => (e.closesAtTick != null && t >= e.closesAtTick ? { ...e, status: "closed" } : e)),
+  };
 }

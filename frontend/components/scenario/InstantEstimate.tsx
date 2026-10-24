@@ -10,6 +10,9 @@ import { type AegisState, isRunStale } from "@/lib/state/aegisReducer";
 
 const DEBOUNCE_MS = 250;
 
+/** Error ranges: whole numbers, except below 1 where rounding would claim ±0. */
+const roughly = (x: number) => (x < 1 ? x.toFixed(1) : String(Math.round(x)));
+
 /**
  * Updates as roads and shelters are toggled, before anything is run. The
  * numbers come from a model trained on simulation runs; the Run button gives
@@ -21,6 +24,7 @@ export function InstantEstimate({ state, scenario }: { state: AegisState; scenar
   const [error, setError] = useState<string | null>(null);
   const scenarioId = state.scenario?.id;
   const { closedEdgeIds, unavailableShelterIds } = state.overrides;
+  const seed = state.seed;
 
   useEffect(() => {
     if (!scenarioId) return;
@@ -28,7 +32,7 @@ export function InstantEstimate({ state, scenario }: { state: AegisState; scenar
     const timer = setTimeout(async () => {
       setLoading(true);
       try {
-        const result = await predictOutcome({ scenarioId, closedEdgeIds, unavailableShelterIds }, controller.signal);
+        const result = await predictOutcome({ scenarioId, randomSeed: seed, closedEdgeIds, unavailableShelterIds }, controller.signal);
         setEstimate(result);
         setError(null);
       } catch (e) {
@@ -38,7 +42,7 @@ export function InstantEstimate({ state, scenario }: { state: AegisState; scenar
       }
     }, DEBOUNCE_MS);
     return () => { clearTimeout(timer); controller.abort(); };
-  }, [scenarioId, closedEdgeIds, unavailableShelterIds]);
+  }, [scenarioId, seed, closedEdgeIds, unavailableShelterIds]);
 
   const { tickSeconds, maxTicks } = scenario.defaultParams;
   const run = state.run && !isRunStale(state) ? state.run : null;
@@ -55,23 +59,35 @@ export function InstantEstimate({ state, scenario }: { state: AegisState; scenar
       {estimate && !estimate.available && <p className="text-sm text-slate-500">{estimate.reason}</p>}
       {estimate?.available && (
         <>
+          {estimate.outOfDate && (
+            <p role="alert" className="mb-3 rounded-md border border-amber-200 bg-amber-50 p-2 text-xs text-amber-800">
+              The simulation has changed since this model was trained, so these estimates may be off. Retrain it with
+              python scripts/train_surrogate.py.
+            </p>
+          )}
           <dl className="grid grid-cols-1 gap-3 sm:grid-cols-3">
             <Stat
               label="Clearance time"
-              value={estimate.clearanceAtTimeLimit ? `${limitMinutes}+ min` : `${Math.round(estimate.clearanceMinutes)} min`}
-              error={`±${Math.round(estimate.model.testMetrics.clearanceMinutes.labP90AbsError)} min`}
+              value={estimate.clearanceAtTimeLimit ? `${limitMinutes}+ min` : `${Number(estimate.clearanceMinutes.toFixed(1))} min`}
+              error={estimate.ranges?.clearanceMinutes
+                ? `(${estimate.ranges.clearanceMinutes[0]}–${estimate.ranges.clearanceMinutes[1]} min)`
+                : `±${roughly(estimate.model.testMetrics.clearanceMinutes.labP90AbsError)} min`}
               actual={actual ? (actual.clearance === null ? `${limitMinutes}+ min (time limit)` : `${Number(actual.clearance.toFixed(1))} min`) : null}
             />
             <Stat
               label="Unserved"
               value={`${estimate.unservedCount.toLocaleString()} of ${estimate.evacuees.toLocaleString()}`}
-              error={`±${Math.round(estimate.model.testMetrics.unservedShare.labP90AbsError)}`}
+              error={estimate.ranges?.unservedCount
+                ? `(${estimate.ranges.unservedCount[0].toLocaleString()}–${estimate.ranges.unservedCount[1].toLocaleString()})`
+                : `±${roughly(estimate.model.testMetrics.unservedShare.labP90AbsError)}`}
               actual={actual ? actual.unserved.toLocaleString() : null}
             />
             <Stat
               label="Peak congestion"
               value={`${estimate.peakCongestion.toFixed(2)}×`}
-              error={`±${estimate.model.testMetrics.peakCongestion.labP90AbsError.toFixed(2)}`}
+              error={estimate.ranges?.peakCongestion
+                ? `(${estimate.ranges.peakCongestion[0].toFixed(2)}–${estimate.ranges.peakCongestion[1].toFixed(2)})`
+                : `±${estimate.model.testMetrics.peakCongestion.labP90AbsError.toFixed(2)}`}
               actual={actual ? `${actual.peak.toFixed(2)}×` : null}
             />
           </dl>
@@ -79,7 +95,11 @@ export function InstantEstimate({ state, scenario }: { state: AegisState; scenar
             <Gauge size={13} className="mt-0.5 shrink-0" aria-hidden />
             <span>
               Machine-learning estimate ({estimate.model.method}, trained on {estimate.model.samples.toLocaleString()} simulated
-              what-ifs). Ranges cover 90% of held-out test cases. It learns this simulator, not real evacuations.
+              what-ifs).{" "}
+              {estimate.ranges
+                ? `Each range is this estimate's own 10th–90th percentile; in testing, ${Math.round((estimate.model.testMetrics.clearanceMinutes.rangeCoverage ?? 0.8) * 100)}% of true clearance times fell inside it.`
+                : "Ranges cover 90% of held-out test cases."}{" "}
+              It learns this simulator, not real evacuations.
               {actual ? " Simulation results are for your last run of this exact setup." : " Run the simulation for the real numbers."}
             </span>
           </p>

@@ -8,9 +8,10 @@ import { ShelterMeters } from "@/components/live/ShelterMeters";
 import { ReplayMapView } from "@/components/map/MapView";
 import { agentMarkerColor } from "@/lib/map/styling";
 import { formatCompletionTick } from "@/lib/metrics/format";
-import { arrivalsSeries, buildReplay, countsAt, occupancyAt } from "@/lib/replay/replay";
+import { arrivalsSeries, buildReplay, countsAt, occupancyAt, scenarioAt } from "@/lib/replay/replay";
 import { PLAYBACK_SPEEDS, usePlayback } from "@/lib/replay/usePlayback";
 import type { RunResult, ScenarioConfig } from "@/lib/schemas/types";
+import { applyInterventions } from "@/lib/scenario/interventions";
 import { type AegisState, isPlanStale, isRunStale } from "@/lib/state/aegisReducer";
 import type { AegisActions } from "@/lib/state/useAegis";
 
@@ -62,7 +63,9 @@ function LiveReplay({ state, run: baseline, scenario }: { state: AegisState; run
     </div>
   );
   // Keyed on the run so switching plans or a new run starts a fresh replay at tick 0.
-  return <LivePlayer key={run.runId} run={run} scenario={scenario} stale={run === baseline && isRunStale(state)} picker={picker || null} />;
+  // The optimized plan may open standby shelters and post marshals: replay it on the scenario it changed.
+  const replayScenario = run === baseline ? scenario : applyInterventions(scenario, state.plan?.interventions);
+  return <LivePlayer key={run.runId} run={run} scenario={replayScenario} stale={run === baseline && isRunStale(state)} picker={picker || null} />;
 }
 
 function LivePlayer({ run, scenario, stale, picker }: { run: RunResult; scenario: ScenarioConfig; stale: boolean; picker: ReactNode }) {
@@ -73,6 +76,8 @@ function LivePlayer({ run, scenario, stale, picker }: { run: RunResult; scenario
 
   // Everything except the moving dots changes once per whole tick, not per frame.
   const counts = useMemo(() => countsAt(replay, tick), [replay, tick]);
+  // Roads that flood during the run turn to "closed" on the map as the replay reaches them.
+  const scenarioNow = useMemo(() => scenarioAt(scenario, tick), [scenario, tick]);
   const occupancy = useMemo(() => occupancyAt(replay, tick), [replay, tick]);
   const series = useMemo(
     () => [{ id: "arrived", label: "In shelter", color: agentMarkerColor("arrived"), points: arrivalsSeries(run, tickSeconds, replay.lastTick) }],
@@ -94,7 +99,7 @@ function LivePlayer({ run, scenario, stale, picker }: { run: RunResult; scenario
           </p>
         )}
         <div className="relative min-h-0 flex-1">
-          <ReplayMapView scenario={scenario} congestionByEdgeId={congestion} occupancyByShelterId={occupancy} replay={replay} t={t} />
+          <ReplayMapView scenario={scenarioNow} congestionByEdgeId={congestion} occupancyByShelterId={occupancy} replay={replay} t={t} />
         </div>
         <div className="flex flex-wrap items-center gap-3 border-t border-slate-200 bg-white px-4 py-3">
           <button

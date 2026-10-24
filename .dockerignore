@@ -1,0 +1,15 @@
+# Backend image context is the repo root: send only what it needs.
+**/.venv
+**/__pycache__
+**/.pytest_cache
+**/node_modules
+**/.next
+frontend
+docs
+.git
+.playwright-mcp
+**/.env*.local
+data/imported
+data/plans
+data/network/.cache
+data/river

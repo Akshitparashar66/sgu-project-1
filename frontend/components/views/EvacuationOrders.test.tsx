@@ -11,8 +11,8 @@ const scenario = {
 } as unknown as ScenarioConfig;
 
 describe("EvacuationOrders", () => {
-  it("lists the plan wave by wave, with who leaves, where to, and the junctions on the way", () => {
-    render(
+  it("groups the plan into departure waves, each summarised and listing who goes where by which roads", () => {
+    const { container } = render(
       <EvacuationOrders
         scenario={scenario}
         orders={[
@@ -22,11 +22,15 @@ describe("EvacuationOrders", () => {
       />,
     );
 
-    const rows = screen.getAllByRole("row").slice(1);
-    expect(within(rows[0]).getByRole("rowheader")).toHaveTextContent("Now");
-    expect(within(rows[0]).getByText("240")).toBeInTheDocument();
-    expect(within(rows[1]).getByRole("rowheader")).toHaveTextContent("+10 min");
-    expect(within(rows[1]).getByText(/reduced mobility/)).toBeInTheDocument();
-    expect(within(rows[1]).getByText("E1 → E3")).toHaveAttribute("title", "E1 to Central; E3 to North");
+    const waves = container.querySelectorAll("details");
+    expect(waves).toHaveLength(2);
+    expect(waves[0]).toHaveAttribute("open");
+    expect(waves[1]).not.toHaveAttribute("open");
+    expect(within(waves[0] as HTMLElement).getByText("Now")).toBeInTheDocument();
+    expect(waves[0]).toHaveTextContent("240 people");
+    expect(waves[1]).toHaveTextContent("+10 min · 60 people · Hindon Riverside 60");
+    const later = within(screen.getByRole("table", { name: "Leaving +10 min", hidden: true }));
+    expect(later.getByText(/reduced mobility/)).toBeInTheDocument();
+    expect(later.getByText("E1 → E3")).toHaveAttribute("title", "E1 to Central; E3 to North");
   });
 });

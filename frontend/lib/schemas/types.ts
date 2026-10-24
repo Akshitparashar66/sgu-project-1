@@ -20,6 +20,8 @@ export interface RoadEdge {
   hazardRisk: number;
   /** Street path from source to target, [lat, lon] pairs. Drawing only; absent = straight line. */
   geometry?: [number, number][] | null;
+  /** Floods at this tick: nobody starts along it after, and people in line re-route. */
+  closesAtTick?: number | null;
 }
 
 export interface PopulationZone {
@@ -37,6 +39,12 @@ export interface Shelter {
   totalCapacity: number;
   occupied: number;
   available: boolean;
+  /** Doors open at this tick; earlier arrivals wait outside. */
+  opensAtTick?: number;
+  /** People registered per tick; null/absent = no limit. */
+  intakePerTick?: number | null;
+  /** Not used by the default plan; the plan optimizer may open it. */
+  standby?: boolean;
 }
 
 export interface HazardZone {
@@ -64,6 +72,8 @@ export interface ScenarioConfig {
   shelters: Shelter[];
   hazards: HazardZone[];
   defaultParams: SimulationParams;
+  /** Marshal teams the plan optimizer may post on roads. */
+  marshalTeams?: number;
 }
 
 // Output of Member 2's assignment step — not normally fetched directly by

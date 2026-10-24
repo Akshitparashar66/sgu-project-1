@@ -12,7 +12,7 @@ const scenario = { id: "scenario_a", defaultParams: { tickSeconds: 30, maxTicks:
 const metric = (labP90AbsError: number) => ({ mae: 1, p90AbsError: 2, labMae: 1, labP90AbsError, r2: 0.9 });
 const estimate: OutcomeEstimate = {
   available: true, clearanceMinutes: 97.6, clearanceAtTimeLimit: false, unservedCount: 12, peakCongestion: 2.31,
-  evacuees: 1500, runtimeMs: 8,
+  evacuees: 1500, runtimeMs: 8, outOfDate: false,
   model: {
     method: "gradient-boosted decision trees", trainedOn: "AEGIS simulation runs", samples: 6400, testSamples: 1600,
     labTestSamples: 800, trainedDate: "2026-10-23",
@@ -28,13 +28,14 @@ describe("InstantEstimate", () => {
     predictOutcome.mockResolvedValue(estimate);
     render(<InstantEstimate state={state} scenario={scenario} />);
 
-    expect(await screen.findByText("~98 min")).toBeInTheDocument();
+    expect(await screen.findByText("~97.6 min")).toBeInTheDocument();
     expect(screen.getByText("±6 min")).toBeInTheDocument();
     expect(screen.getByText("~12 of 1,500")).toBeInTheDocument();
     expect(screen.getByText("~2.31×")).toBeInTheDocument();
     expect(screen.getByText(/Run the simulation for the real numbers/)).toBeInTheDocument();
+    expect(screen.getByText(/Ranges cover 90%/)).toBeInTheDocument();
     expect(predictOutcome).toHaveBeenCalledWith(
-      { scenarioId: "scenario_a", closedEdgeIds: ["E3"], unavailableShelterIds: [] }, expect.any(AbortSignal),
+      { scenarioId: "scenario_a", randomSeed: 42, closedEdgeIds: ["E3"], unavailableShelterIds: [] }, expect.any(AbortSignal),
     );
   });
 
@@ -45,6 +46,18 @@ describe("InstantEstimate", () => {
 
     expect(await screen.findByText("98 min")).toBeInTheDocument(); // 196 ticks × 30 s
     expect(screen.getByText("2.32×")).toBeInTheDocument();
+  });
+
+  it("shows each estimate's own range when the model has range models", async () => {
+    predictOutcome.mockResolvedValue({
+      ...estimate, ranges: { clearanceMinutes: [95.5, 99], unservedCount: [0, 40], peakCongestion: [2.25, 2.4] },
+    });
+    render(<InstantEstimate state={state} scenario={scenario} />);
+
+    expect(await screen.findByText("(95.5–99 min)")).toBeInTheDocument();
+    expect(screen.getByText("(0–40)")).toBeInTheDocument();
+    expect(screen.getByText("(2.25–2.40)")).toBeInTheDocument();
+    expect(screen.getByText(/own 10th–90th percentile/)).toBeInTheDocument();
   });
 
   it("explains when no trained model is installed", async () => {

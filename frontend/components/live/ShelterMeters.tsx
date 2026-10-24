@@ -18,7 +18,7 @@ export function ShelterMeters({ shelters, occupancy }: { shelters: Shelter[]; oc
             <div className="mb-1 flex items-baseline justify-between gap-2 text-xs">
               <span className="truncate text-slate-700">{shelter.id} · {shelter.name}</span>
               <span className="shrink-0 tabular-nums text-slate-500">
-                {shelter.available ? `${occupied} / ${shelter.totalCapacity}` : "unavailable"}
+                {shelter.available ? `${occupied} / ${shelter.totalCapacity}` : shelter.standby ? "standby" : "unavailable"}
               </span>
             </div>
             <div

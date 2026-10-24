@@ -20,12 +20,12 @@ export function ComparisonTable({ comparison }: { comparison: ComparisonResult }
   return (
     <div>
       <table className="w-full text-left text-sm">
-        <caption className="sr-only">Baseline versus alternative plan, metric by metric</caption>
+        <caption className="sr-only">Baseline versus optimized plan, metric by metric</caption>
         <thead className="text-xs uppercase tracking-wide text-slate-500">
           <tr>
             <th scope="col" className="py-2 pr-3 font-medium">Metric</th>
             <th scope="col" className="py-2 pr-3 text-right font-medium">Baseline</th>
-            <th scope="col" className="py-2 pr-3 text-right font-medium">Alternative</th>
+            <th scope="col" className="py-2 pr-3 text-right font-medium">Optimized</th>
             <th scope="col" className="py-2 pr-3 text-right font-medium">Change</th>
             <th scope="col" className="py-2 pr-3 text-right font-medium">%</th>
             <th scope="col" className="py-2 font-medium">Result</th>

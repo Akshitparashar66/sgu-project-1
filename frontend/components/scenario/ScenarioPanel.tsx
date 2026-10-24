@@ -3,6 +3,7 @@
 import { GitCompareArrows, Loader2, Play, X } from "lucide-react";
 
 import { FindingsList } from "@/components/insights/FindingsList";
+import { RiverLevel } from "@/components/river/RiverLevel";
 import { buildRecommendations } from "@/lib/insights/recommendations";
 import { hasOverrides } from "@/lib/scenario/overrides";
 import type { ScenarioConfig } from "@/lib/schemas/types";
@@ -78,7 +79,7 @@ export function ScenarioPanel({ state, effectiveScenario, actions, onOpenCompari
           className="inline-flex items-center justify-center gap-2 rounded-md border border-blue-200 px-3 py-2 text-sm font-medium text-blue-700 hover:bg-blue-50 disabled:cursor-not-allowed disabled:opacity-50"
         >
           {state.busy === "plan" ? <Loader2 size={16} className="animate-spin" aria-hidden /> : <GitCompareArrows size={16} aria-hidden />}
-          Generate alternative plan
+          Optimize plan
         </button>
       </div>
 
@@ -98,6 +99,7 @@ export function ScenarioPanel({ state, effectiveScenario, actions, onOpenCompari
           <FindingsList recommendations={buildRecommendations(scenario, state.run)} />
         </section>
       )}
+      <RiverLevel actions={actions} />
     </aside>
   );
 }

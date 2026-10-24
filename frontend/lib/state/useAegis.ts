@@ -44,6 +44,16 @@ export function useAegis() {
       .catch((error) => dispatch({ type: "failed", message: message(error) }));
   }, [loadScenario]);
 
+  /** Re-list scenarios (one was just imported) and open the given one. */
+  const openScenario = useCallback(async (scenarioId: string) => {
+    try {
+      dispatch({ type: "scenariosLoaded", scenarios: await fetchScenarios() });
+      await loadScenario(scenarioId);
+    } catch (error) {
+      dispatch({ type: "failed", message: message(error) });
+    }
+  }, [loadScenario]);
+
   const runRequest = () => {
     const { scenario, overrides, seed } = stateRef.current;
     if (!scenario) return null;
@@ -76,7 +86,7 @@ export function useAegis() {
       });
       // Even an infeasible verdict carries both runs, so the evidence is comparable.
       const comparison = plan.baselineRun && plan.alternativeRun
-        ? await compareRuns(plan.baselineRun, plan.alternativeRun)
+        ? await compareRuns(plan.baselineRun, plan.alternativeRun, request.scenario.defaultParams.tickSeconds)
         : null;
       if (request.myGeneration === generation.current) {
         dispatch({ type: "planSucceeded", plan, comparison, key: request.key });
@@ -88,6 +98,7 @@ export function useAegis() {
 
   const actions = useMemo(() => ({
     loadScenario,
+    openScenario,
     run,
     generatePlan,
     toggleEdge: (edgeId: string) => dispatch({ type: "toggleEdge", edgeId }),
@@ -96,7 +107,7 @@ export function useAegis() {
     setSeed: (seed: number) => dispatch({ type: "setSeed", seed }),
     select: (selection: MapSelection) => dispatch({ type: "select", selection }),
     reset: () => dispatch({ type: "reset" }),
-  }), [loadScenario, run, generatePlan]);
+  }), [loadScenario, openScenario, run, generatePlan]);
 
   /** The scenario as currently edited — what the map draws and the next run will simulate. */
   const effectiveScenario = useMemo(

@@ -4,10 +4,16 @@ class CongestionModelProtocol:
     congestion.py — specifically so neither of those two modules has to
     import the other."""
 
-    def effective_travel_time_s(self, edge_id: str, tick: int, agents_entering: int) -> float:
+    def entry_capacity(self, edge_id: str) -> int:
+        """People who may start along the edge in one tick; the rest wait in line."""
         raise NotImplementedError
 
-    def register_tick(self, edge_id: str, tick: int, agents_entering: int) -> None:
+    def travel_time_s(self, edge_id: str) -> float:
+        """Walking time along the edge once on it (before the movement-profile multiplier)."""
+        raise NotImplementedError
+
+    def register_tick(self, edge_id: str, tick: int, demand: int) -> None:
+        """Record how many wanted to start along the edge this tick (in line included)."""
         raise NotImplementedError
 
     def peak_congestion(self) -> dict[str, tuple[float, int]]:

@@ -3,6 +3,7 @@
 import { Download, Printer } from "lucide-react";
 
 import { FindingsList } from "@/components/insights/FindingsList";
+import { SavedPlans } from "@/components/plans/SavedPlans";
 import { Card, Page, rowClass, tableClass, theadClass } from "@/components/ui/Card";
 import { buildRecommendations } from "@/lib/insights/recommendations";
 import { formatCompletionTick, formatOccupancy } from "@/lib/metrics/format";
@@ -21,6 +22,7 @@ export function ReportsView({ state, effectiveScenario: scenario }: { state: Aeg
         <p className="rounded-lg border border-dashed border-slate-200 p-8 text-center text-sm text-slate-500">
           No run yet. Run a simulation from Overview or the Scenario Lab, then come back for the full report.
         </p>
+        <SavedPlans />
       </Page>
     );
   }
@@ -177,6 +179,7 @@ export function ReportsView({ state, effectiveScenario: scenario }: { state: Aeg
         Synthetic data and simplified movement rules — a planning prototype, not live emergency guidance. Modeling assumptions are listed in
         docs/ASSUMPTIONS.md.
       </p>
+      <SavedPlans />
     </Page>
   );
 }

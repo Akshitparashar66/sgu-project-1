@@ -7,18 +7,21 @@ from app.simulation.protocols import CongestionModelProtocol
 
 
 class FakeCongestionModel(CongestionModelProtocol):
-    """No congestion at all — effective time == base time. Stands in for
-    Member 2's real CongestionModel until it exists."""
+    """Unlimited road capacity, base travel times: isolates the engine's
+    movement and shelter rules from congestion."""
 
     def __init__(self, edges_by_id: dict[str, RoadEdge]):
         self._edges = edges_by_id
         self.registered: list[tuple[str, int, int]] = []
 
-    def effective_travel_time_s(self, edge_id, tick, agents_entering):
+    def entry_capacity(self, edge_id):
+        return 10**9
+
+    def travel_time_s(self, edge_id):
         return self._edges[edge_id].base_travel_time_s
 
-    def register_tick(self, edge_id, tick, agents_entering):
-        self.registered.append((edge_id, tick, agents_entering))
+    def register_tick(self, edge_id, tick, demand):
+        self.registered.append((edge_id, tick, demand))
 
     def peak_congestion(self):
         return {}
@@ -169,3 +172,43 @@ def test_max_ticks_limit_marks_remaining_agents_unserved_with_warning():
     assert len(result.warnings) == 1
     # Still walking at the limit is not the same as being turned away at the door.
     assert result.shelters[0].rejected_count == 0
+
+
+def _crowd(n: int, route=("E1",)) -> list[AgentPlan]:
+    return [AgentPlan(agent_id=f"A{i}", origin_zone="Z1", assigned_shelter="S1", route_edge_ids=list(route),
+                      movement_profile="standard", distance_m=100) for i in range(n)]
+
+
+def test_a_road_lets_in_at_most_its_capacity_per_tick_and_the_rest_wait_in_line():
+    from app.routing.congestion import CongestionModel
+
+    scenario = _tiny_scenario()  # E1: capacity 10 per tick, 90 s = 3 ticks
+    scenario.shelters[0].total_capacity = 100
+    params = SimulationParams(tick_seconds=30, max_ticks=20, random_seed=42)
+
+    result = simulate(scenario, _crowd(25), params, CongestionModel(scenario, params), plan_label="baseline")
+
+    entries = sorted(a.edge_entry_ticks[0] for a in result.agents)
+    assert entries == [0] * 10 + [1] * 10 + [2] * 5
+    # Once on the road everyone walks at normal speed: 3 ticks.
+    assert all(a.arrival_tick == a.edge_entry_ticks[0] + 2 for a in result.agents)
+    edge = result.congestion[0]
+    assert (edge.peak_demand_to_capacity, edge.peak_tick) == (2.5, 0)
+    # 15 waited one tick, 5 waited a second: 20 ticks x 30 s.
+    assert edge.total_delay_s == 600.0
+
+
+def test_people_already_in_line_go_before_newcomers():
+    from app.routing.congestion import CongestionModel
+
+    # 15 people leave at once for E1 (capacity 10); 10 more arrive at tick 1.
+    scenario = _tiny_scenario()
+    scenario.shelters[0].total_capacity = 100
+    params = SimulationParams(tick_seconds=30, max_ticks=20, random_seed=42)
+    late = [p.model_copy(update={"agent_id": f"L{i}", "departure_tick": 1}) for i, p in enumerate(_crowd(10))]
+
+    result = simulate(scenario, _crowd(15) + late, params, CongestionModel(scenario, params), plan_label="baseline")
+
+    entry = {a.id: a.edge_entry_ticks[0] for a in result.agents}
+    assert sorted(entry[f"A{i}"] for i in range(15)) == [0] * 10 + [1] * 5
+    assert sorted(entry[f"L{i}"] for i in range(10)) == [1] * 5 + [2] * 5

@@ -45,7 +45,7 @@ export function SettingsView({ state, effectiveScenario: scenario, actions }: {
         </div>
         <p className="mt-2 text-xs leading-relaxed text-slate-500">
           The seed only decides tie-breaks when evacuees are equally close to two shelters. The same seed and scenario always produce
-          an identical run, and the baseline and alternative plans are always computed with the same seed so their comparison is fair.
+          an identical run, and the baseline and optimized plans are always computed with the same seed so their comparison is fair.
         </p>
       </Card>
 
@@ -71,8 +71,8 @@ export function SettingsView({ state, effectiveScenario: scenario, actions }: {
         <ul className="list-inside list-disc space-y-1 text-sm text-slate-500">
           <li>Not a live emergency-response system — it never issues real evacuation instructions.</li>
           <li>Not validated against real human behavior — speeds and congestion are documented, simplified models.</li>
-          <li>Not machine learning — routing is Dijkstra; the alternative plan is a greedy load-balancing heuristic.</li>
-          <li>Not connected to any live feed — every scenario is synthetic and loaded from data/scenarios/*.json.</li>
+          <li>Not trained on real evacuations — the instant estimate is a model of this simulator, and the optimized plan is a search scored by the simulation, not a proven optimum.</li>
+          <li>Not connected to any live feed — shipped scenarios are synthetic (data/scenarios/); imported ones are only as good as the uploaded CSVs (data/imported/).</li>
         </ul>
       </Card>
     </Page>

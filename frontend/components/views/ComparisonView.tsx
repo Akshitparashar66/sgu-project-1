@@ -1,15 +1,18 @@
 "use client";
 
-import { CircleCheck, GitCompareArrows, Loader2, TriangleAlert } from "lucide-react";
+import { CircleCheck, GitCompareArrows, Loader2, Printer, TriangleAlert } from "lucide-react";
+import { useState } from "react";
 
 import { ArrivalsChart } from "@/components/charts/ArrivalsChart";
+import { PrintOrdersDialog } from "@/components/orders/PrintableOrders";
+import { SavePlanForm } from "@/components/plans/SavedPlans";
 import { ComparisonTable } from "@/components/comparison/ComparisonTable";
 import { Card, Page, rowClass, tableClass, theadClass } from "@/components/ui/Card";
 import { formatOccupancy } from "@/lib/metrics/format";
 import { summarizeReassignments } from "@/lib/metrics/reassignments";
 import { verdictSummary } from "@/lib/metrics/verdict";
 import { arrivalsSeries } from "@/lib/replay/replay";
-import type { EvacuationOrder } from "@/lib/api/client";
+import type { EvacuationOrder, Percentiles, PlanRobustness } from "@/lib/api/client";
 import type { ScenarioConfig } from "@/lib/schemas/types";
 import { type AegisState, isPlanStale } from "@/lib/state/aegisReducer";
 import type { AegisActions } from "@/lib/state/useAegis";
@@ -26,6 +29,10 @@ export function ComparisonView({ state, effectiveScenario, actions }: {
   const stale = isPlanStale(state);
   const { tickSeconds } = effectiveScenario.defaultParams;
   const verdict = comparison ? verdictSummary(comparison) : null;
+  const [printing, setPrinting] = useState(false);
+  const clearance = plan?.alternativeRun?.metrics.completionTick != null
+    ? (plan.alternativeRun.metrics.completionTick * tickSeconds) / 60
+    : null;
 
   return (
     <Page
@@ -45,7 +52,7 @@ export function ComparisonView({ state, effectiveScenario, actions }: {
           className="inline-flex items-center gap-2 rounded-md bg-blue-600 px-3 py-2 text-sm font-semibold text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
         >
           {state.busy === "plan" ? <Loader2 size={16} className="animate-spin" aria-hidden /> : <GitCompareArrows size={16} aria-hidden />}
-          {plan ? "Regenerate" : "Generate alternative plan"}
+          {plan ? "Re-optimize" : "Optimize plan"}
         </button>
       }
     >
@@ -53,13 +60,13 @@ export function ComparisonView({ state, effectiveScenario, actions }: {
 
       {!plan && (
         <p className="rounded-lg border border-dashed border-slate-200 p-8 text-center text-sm text-slate-500">
-          No alternative plan yet. Generate one to compare it against the baseline for the current scenario and what-if changes.
+          No optimized plan yet. Press Optimize plan to search for a better one and compare it against the baseline for the current scenario and what-if changes.
         </p>
       )}
 
       {plan && stale && (
         <p className="rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
-          This comparison was computed before your latest scenario changes. Regenerate to compare the current setup.
+          This comparison was computed before your latest scenario changes. Re-optimize to compare the current setup.
         </p>
       )}
 
@@ -88,8 +95,55 @@ export function ComparisonView({ state, effectiveScenario, actions }: {
         </div>
       )}
 
+      {plan?.feasible && plan.interventions && (plan.interventions.openedShelters.length > 0 || plan.interventions.marshalledRoads.length > 0) && (
+        <Card title="What the plan changes on the ground">
+          <ul className="list-inside list-disc space-y-1 text-sm text-slate-700">
+            {plan.interventions.openedShelters.map((s) => {
+              const shelter = effectiveScenario.shelters.find((x) => x.id === s.shelterId);
+              const opens = ((shelter?.opensAtTick ?? 0) * effectiveScenario.defaultParams.tickSeconds) / 60;
+              return (
+                <li key={s.shelterId}>
+                  Open the standby shelter <strong>{s.name}</strong> ({shelter?.totalCapacity.toLocaleString()} places{opens ? `, ready ${opens} min after the order` : ""}).
+                </li>
+              );
+            })}
+            {plan.interventions.marshalledRoads.map((id) => (
+              <li key={id}>Post a marshal team on road <strong>{id}</strong> to keep the crowd moving (25% more people per minute onto it).</li>
+            ))}
+          </ul>
+          <p className="mt-2 text-xs text-slate-500">
+            The optimizer only uses these when they pay for themselves: each costs the equivalent of 30 s (marshals) or 1.5 min
+            (opening a shelter) of clearance time in its score.
+          </p>
+        </Card>
+      )}
+
+      {plan?.robustness && <Robustness robustness={plan.robustness} />}
+
       {plan?.feasible && plan.orders && plan.orders.length > 0 && (
-        <EvacuationOrders orders={plan.orders} scenario={effectiveScenario} />
+        <>
+          <div className="flex justify-end">
+            <button
+              type="button"
+              onClick={() => setPrinting(true)}
+              disabled={stale}
+              className="inline-flex items-center gap-1.5 rounded-md border border-slate-200 px-3 py-1.5 text-sm text-slate-700 hover:bg-slate-100 disabled:opacity-40"
+            >
+              <Printer size={15} aria-hidden /> Print orders (English / हिन्दी)
+            </button>
+          </div>
+          <EvacuationOrders orders={plan.orders} scenario={effectiveScenario} />
+          {!stale && <SavePlanForm state={state} />}
+        </>
+      )}
+      {printing && plan?.orders && (
+        <PrintOrdersDialog
+          orders={plan.orders}
+          interventions={plan.interventions}
+          scenario={effectiveScenario}
+          clearanceMinutes={clearance}
+          onClose={() => setPrinting(false)}
+        />
       )}
 
       {plan?.search && (
@@ -97,6 +151,12 @@ export function ComparisonView({ state, effectiveScenario, actions }: {
           The optimizer evaluated {plan.search.plansEvaluated.toLocaleString()} candidate plans
           ({plan.search.iterations.toLocaleString()} {plan.search.method} steps, groups of up to {plan.search.blockSize} people)
           in {(plan.search.runtimeMs / 1000).toFixed(1)} s.
+          {plan.search.clearanceLowerBoundMinutes !== null && plan.alternativeRun?.metrics.completionTick != null && (
+            <>
+              {" "}No plan can clear in under {plan.search.clearanceLowerBoundMinutes} min (a lower bound from walking times and road
+              capacity); this one takes {(plan.alternativeRun.metrics.completionTick * effectiveScenario.defaultParams.tickSeconds) / 60} min.
+            </>
+          )}
         </p>
       )}
 
@@ -125,7 +185,7 @@ export function ComparisonView({ state, effectiveScenario, actions }: {
                 <tr>
                   <th scope="col" className="py-2 font-medium">Shelter</th>
                   <th scope="col" className="py-2 text-right font-medium">Baseline</th>
-                  <th scope="col" className="py-2 text-right font-medium">Alternative</th>
+                  <th scope="col" className="py-2 text-right font-medium">Optimized</th>
                 </tr>
               </thead>
               <tbody>
@@ -176,38 +236,97 @@ export function EvacuationOrders({ orders, scenario }: { orders: EvacuationOrder
     }).join("; ");
   };
   const waves = [...new Set(orders.map((o) => o.departureMinute))].sort((a, b) => a - b);
+  const waveLabel = (minute: number) => (minute === 0 ? "Now" : `+${minute} min`);
 
   return (
     <Card title="Evacuation orders">
+      <div className="space-y-2">
+        {waves.map((minute, w) => {
+          const wave = orders.filter((o) => o.departureMinute === minute);
+          const byZone = new Map<string, number>();
+          for (const o of wave) byZone.set(o.zoneId, (byZone.get(o.zoneId) ?? 0) + o.people);
+          const people = wave.reduce((n, o) => n + o.people, 0);
+          return (
+            <details key={minute} open={w === 0} className="rounded-md border border-slate-200">
+              <summary className="cursor-pointer select-none px-3 py-2 text-sm">
+                <span className="font-semibold tabular-nums text-slate-900">{waveLabel(minute)}</span>
+                <span className="text-slate-600"> · {people.toLocaleString()} people · </span>
+                <span className="text-slate-500">{[...byZone].map(([zone, n]) => `${zoneName(zone)} ${n}`).join(", ")}</span>
+              </summary>
+              <table className={`${tableClass} border-t border-slate-200`}>
+                <caption className="sr-only">Leaving {waveLabel(minute)}</caption>
+                <thead className={theadClass}>
+                  <tr>
+                    <th scope="col" className="px-3 py-2 font-medium">From</th>
+                    <th scope="col" className="py-2 text-right font-medium">People</th>
+                    <th scope="col" className="py-2 pl-4 font-medium">To shelter</th>
+                    <th scope="col" className="py-2 pr-3 font-medium">Route</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {wave.map((o) => (
+                    <tr key={`${o.zoneId}-${o.movementProfile}-${o.shelterId}-${o.routeEdgeIds.join()}`} className={rowClass}>
+                      <th scope="row" className="px-3 py-2 align-top font-normal text-slate-700">
+                        {zoneName(o.zoneId)}
+                        {o.movementProfile !== "standard" && <span className="text-slate-500"> · {o.movementProfile.replace(/_/g, " ")}</span>}
+                      </th>
+                      <td className="py-2 text-right align-top tabular-nums text-slate-900">{o.people}</td>
+                      <td className="py-2 pl-4 align-top text-slate-700">{shelterName(o.shelterId)}</td>
+                      <td className="py-2 pr-3 align-top text-xs text-slate-500" title={via(o)}>{o.routeEdgeIds.join(" → ")}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </details>
+          );
+        })}
+      </div>
+    </Card>
+  );
+}
+
+function range({ p10, p50, p90 }: Percentiles, unit = "") {
+  return p10 === p90 ? `${p50}${unit}` : `${p10}–${p90}${unit} (typically ${p50})`;
+}
+
+/** The comparison under realistic variation, not just the one nominal run. */
+export function Robustness({ robustness: r }: { robustness: PlanRobustness }) {
+  const rows: [string, (s: PlanRobustness["baseline"]) => string][] = [
+    ["Clearance time", (s) => range(s.clearanceMinutes, " min")],
+    ["Unserved", (s) => range(s.unserved)],
+    ["Average time to shelter", (s) => range(s.averageMinutes, " min")],
+  ];
+  return (
+    <Card title="How robust is it?">
+      <p className="mb-3 text-sm text-slate-700">
+        Across {r.variations} variations ({r.assumptions.join("; ")}), the optimized plan did better than the baseline in{" "}
+        <strong className="tabular-nums">{r.optimizedBetter} of {r.variations}</strong>.
+      </p>
       <table className={tableClass}>
+        <caption className="sr-only">10th to 90th percentile outcomes under variation</caption>
         <thead className={theadClass}>
           <tr>
-            <th scope="col" className="py-2 font-medium">Leave at</th>
-            <th scope="col" className="py-2 font-medium">From</th>
-            <th scope="col" className="py-2 text-right font-medium">People</th>
-            <th scope="col" className="py-2 pl-4 font-medium">To shelter</th>
-            <th scope="col" className="py-2 font-medium">Route</th>
+            <th scope="col" className="py-2 font-medium">Metric (10th–90th percentile)</th>
+            <th scope="col" className="py-2 text-right font-medium">Baseline</th>
+            <th scope="col" className="py-2 text-right font-medium">Optimized</th>
           </tr>
         </thead>
         <tbody>
-          {waves.flatMap((minute) =>
-            orders.filter((o) => o.departureMinute === minute).map((o, i) => (
-              <tr key={`${minute}-${o.zoneId}-${o.movementProfile}-${o.shelterId}-${o.routeEdgeIds.join()}`} className={rowClass}>
-                <th scope="row" className="py-2 align-top font-medium tabular-nums text-slate-800">
-                  {i === 0 ? (minute === 0 ? "Now" : `+${minute} min`) : <span className="sr-only">{minute === 0 ? "Now" : `+${minute} min`}</span>}
-                </th>
-                <td className="py-2 align-top text-slate-700">
-                  {zoneName(o.zoneId)}
-                  {o.movementProfile !== "standard" && <span className="text-slate-500"> · {o.movementProfile.replace(/_/g, " ")}</span>}
-                </td>
-                <td className="py-2 text-right align-top tabular-nums text-slate-900">{o.people}</td>
-                <td className="py-2 pl-4 align-top text-slate-700">{shelterName(o.shelterId)}</td>
-                <td className="py-2 align-top text-xs text-slate-500" title={via(o)}>{o.routeEdgeIds.join(" → ")}</td>
-              </tr>
-            )),
-          )}
+          {rows.map(([label, value]) => (
+            <tr key={label} className={rowClass}>
+              <th scope="row" className="py-2 font-normal text-slate-800">{label}</th>
+              <td className="py-2 text-right tabular-nums text-slate-700">{value(r.baseline)}</td>
+              <td className="py-2 text-right tabular-nums text-slate-900">{value(r.optimized)}</td>
+            </tr>
+          ))}
         </tbody>
       </table>
+      {(r.baseline.hitTimeLimit > 0 || r.optimized.hitTimeLimit > 0) && (
+        <p className="mt-2 text-xs text-amber-700">
+          Ran out of time in {r.baseline.hitTimeLimit} of {r.variations} variations (baseline) and{" "}
+          {r.optimized.hitTimeLimit} of {r.variations} (optimized); those count the time limit as their clearance time.
+        </p>
+      )}
     </Card>
   );
 }

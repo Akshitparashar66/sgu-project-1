@@ -3,7 +3,9 @@
 import { FileCheck2, Loader2, Play, Undo2 } from "lucide-react";
 import { useState } from "react";
 
+import { ImportData } from "@/components/scenario/ImportData";
 import { InstantEstimate } from "@/components/scenario/InstantEstimate";
+import { WeakPoints } from "@/components/scenario/WeakPoints";
 import { Card, Page, rowClass, tableClass, theadClass } from "@/components/ui/Card";
 import { ApiError, type FieldError, validateScenario, type ValidationSummary } from "@/lib/api/client";
 import { hasOverrides } from "@/lib/scenario/overrides";
@@ -18,8 +20,21 @@ interface ScenarioLabViewProps {
   onRunComplete: () => void;
 }
 
+// Above this many roads (the detailed network), the table shows a search box and the first matches.
+const ROAD_TABLE_LIMIT = 25;
+
 export function ScenarioLabView({ state, effectiveScenario: scenario, actions, onRunComplete }: ScenarioLabViewProps) {
   const label = (id: string) => scenario.nodes.find((n) => n.id === id)?.label ?? id;
+  const [roadQuery, setRoadQuery] = useState("");
+  const manyRoads = scenario.edges.length > ROAD_TABLE_LIMIT;
+  const query = roadQuery.trim().toLowerCase();
+  const matching = manyRoads
+    ? scenario.edges
+        .filter((e) => !query || `${e.id} ${label(e.source)} ${label(e.target)}`.toLowerCase().includes(query))
+        // Closed and soon-to-flood roads first, so changes are never hidden.
+        .sort((a, b) => Number(b.status === "closed" || b.closesAtTick != null) - Number(a.status === "closed" || a.closesAtTick != null))
+    : scenario.edges;
+  const shownRoads = matching.slice(0, manyRoads ? ROAD_TABLE_LIMIT : matching.length);
 
   return (
     <Page
@@ -49,7 +64,24 @@ export function ScenarioLabView({ state, effectiveScenario: scenario, actions, o
     >
       <InstantEstimate state={state} scenario={scenario} />
 
+      <WeakPoints state={state} actions={actions} />
+
       <Card title={`Roads (${scenario.edges.filter((e) => e.status === "closed").length} of ${scenario.edges.length} closed)`}>
+        {manyRoads && (
+          <div className="mb-3 flex flex-wrap items-center gap-2 text-sm">
+            <label htmlFor="road-search" className="sr-only">Find a road</label>
+            <input
+              id="road-search"
+              value={roadQuery}
+              onChange={(e) => setRoadQuery(e.target.value)}
+              placeholder="Find a road by id or street name"
+              className="min-w-0 flex-1 rounded-md border border-slate-200 px-3 py-1.5 text-sm focus:border-blue-500 focus:outline-none"
+            />
+            <span className="text-xs text-slate-500">
+              Showing {shownRoads.length} of {matching.length} matching roads ({scenario.edges.length} in total)
+            </span>
+          </div>
+        )}
         <table className={tableClass}>
           <thead className={theadClass}>
             <tr>
@@ -63,7 +95,7 @@ export function ScenarioLabView({ state, effectiveScenario: scenario, actions, o
             </tr>
           </thead>
           <tbody>
-            {scenario.edges.map((edge) => {
+            {shownRoads.map((edge) => {
               const closed = edge.status === "closed";
               return (
                 <tr key={edge.id} className={rowClass}>
@@ -72,7 +104,12 @@ export function ScenarioLabView({ state, effectiveScenario: scenario, actions, o
                   <td className="py-2 text-right tabular-nums text-slate-700">{edge.lengthM} m</td>
                   <td className="py-2 text-right tabular-nums text-slate-700">{edge.capacityPerTick}</td>
                   <td className="py-2 text-right tabular-nums text-slate-700">{Math.round(edge.hazardRisk * 100)}%</td>
-                  <td className={`py-2 pl-4 ${closed ? "text-red-600" : "text-slate-700"}`}>{edge.status}</td>
+                  <td className={`py-2 pl-4 ${closed ? "text-red-600" : "text-slate-700"}`}>
+                    {edge.status}
+                    {!closed && edge.closesAtTick != null && (
+                      <span className="block text-xs text-amber-700">floods at {(edge.closesAtTick * scenario.defaultParams.tickSeconds) / 60} min</span>
+                    )}
+                  </td>
                   <td className="py-2 text-right">
                     <ToggleButton danger={!closed} onClick={() => actions.toggleEdge(edge.id)} label={`${closed ? "Reopen" : "Close"} road ${edge.id}`}>
                       {closed ? "Reopen" : "Close"}
@@ -103,16 +140,28 @@ export function ScenarioLabView({ state, effectiveScenario: scenario, actions, o
                 <td className="py-2 text-slate-500">{shelter.name}</td>
                 <td className="py-2 text-right tabular-nums text-slate-700">{shelter.totalCapacity}</td>
                 <td className={`py-2 pl-4 ${shelter.available ? "text-slate-700" : "text-red-600"}`}>
-                  {shelter.available ? "available" : "unavailable"}
+                  {shelter.available ? "available" : shelter.standby ? "standby" : "unavailable"}
+                  {shelter.available && (shelter.opensAtTick ?? 0) > 0 && (
+                    <span className="block text-xs text-amber-700">opens at {((shelter.opensAtTick ?? 0) * scenario.defaultParams.tickSeconds) / 60} min</span>
+                  )}
+                  {shelter.available && shelter.intakePerTick != null && (
+                    <span className="block text-xs text-slate-500">
+                      registers {Math.round(shelter.intakePerTick * 60 / scenario.defaultParams.tickSeconds)} people/min
+                    </span>
+                  )}
                 </td>
                 <td className="py-2 text-right">
-                  <ToggleButton
-                    danger={shelter.available}
-                    onClick={() => actions.toggleShelter(shelter.id)}
-                    label={`Mark shelter ${shelter.id} ${shelter.available ? "unavailable" : "available"}`}
-                  >
-                    {shelter.available ? "Take offline" : "Bring online"}
-                  </ToggleButton>
+                  {shelter.standby && !shelter.available ? (
+                    <span className="text-xs text-slate-500">the optimizer may open it</span>
+                  ) : (
+                    <ToggleButton
+                      danger={shelter.available}
+                      onClick={() => actions.toggleShelter(shelter.id)}
+                      label={`Mark shelter ${shelter.id} ${shelter.available ? "unavailable" : "available"}`}
+                    >
+                      {shelter.available ? "Take offline" : "Bring online"}
+                    </ToggleButton>
+                  )}
                 </td>
               </tr>
             ))}
@@ -144,6 +193,8 @@ export function ScenarioLabView({ state, effectiveScenario: scenario, actions, o
           </tbody>
         </table>
       </Card>
+
+      <ImportData scenario={scenario} actions={actions} />
 
       <ScenarioFileValidator />
     </Page>

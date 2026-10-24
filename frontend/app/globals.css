@@ -127,3 +127,13 @@ summary {
 }
 .leaflet-bar a:hover { background: #f8fafc; }
 .leaflet-bar a:focus-visible { outline: 2px solid #2563eb; outline-offset: 1px; }
+
+/* Printing evacuation orders: only the order sheet goes to paper. */
+@media print {
+  body * { visibility: hidden; }
+  .print-root, .print-root .print-sheet, .print-root .print-sheet * { visibility: visible; }
+  .print-root { position: absolute; inset: 0; background: white; overflow: visible; }
+  .print-root .print-sheet { position: absolute; left: 0; top: 0; width: 100%; max-width: none; padding: 0; }
+  .no-print { display: none !important; }
+}
+

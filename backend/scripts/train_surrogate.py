@@ -33,7 +33,7 @@ import sklearn  # noqa: E402
 from sklearn.ensemble import GradientBoostingRegressor  # noqa: E402
 
 from app.ml.features import FEATURE_NAMES, scenario_features  # noqa: E402
-from app.ml.surrogate import MODEL_PATH, predict_target  # noqa: E402
+from app.ml.surrogate import MODEL_PATH, engine_fingerprint, predict_target  # noqa: E402
 from app.models.schemas import RoadStatus, ScenarioConfig  # noqa: E402
 from app.routing.assignment import assign_shelters_and_routes  # noqa: E402
 from app.routing.graph import build_graph  # noqa: E402
@@ -45,12 +45,16 @@ LAB_SHARE = 0.5  # half the data looks exactly like Scenario Lab what-ifs
 TEST_SHARE = 0.2
 SEED = 2026
 TREE_PARAMS = dict(n_estimators=300, max_depth=4, learning_rate=0.05, subsample=0.8, min_samples_leaf=5)
+# Per-estimate ranges: 10th and 90th percentile models, smaller than the main one.
+RANGE_PARAMS = dict(n_estimators=150, max_depth=3, learning_rate=0.08, subsample=0.8, min_samples_leaf=10)
+RANGE = (0.1, 0.9)
 
 
 def lab_variant(base: ScenarioConfig, rng: random.Random) -> ScenarioConfig:
     s = base.model_copy(deep=True)
+    close_share = 0.15 if len(s.edges) < 50 else 0.03  # the detailed network has hundreds of roads
     for e in s.edges:
-        if rng.random() < 0.15:
+        if rng.random() < close_share:
             e.status = RoadStatus.CLOSED
     for sh in s.shelters:
         if rng.random() < 0.12:
@@ -71,6 +75,16 @@ def perturbed_variant(base: ScenarioConfig, rng: random.Random) -> ScenarioConfi
         z.movement_profile = {"standard": 1 - slow, "reduced_mobility": slow}
     for sh in s.shelters:
         sh.total_capacity = max(1, round(sh.total_capacity * rng.uniform(0.5, 1.3)))
+    if rng.random() < 0.3:  # a shorter warning, like the flood scenario's
+        s.default_params.max_ticks = rng.randrange(60, 241)
+    if rng.random() < 0.3:  # roads that flood mid-run
+        for e in rng.sample(s.edges, k=max(1, len(s.edges) // 7)):
+            e.closes_at_tick = rng.randrange(0, 90)
+    for sh in s.shelters:
+        if rng.random() < 0.2:
+            sh.opens_at_tick = rng.randrange(0, 40)
+        if rng.random() < 0.2:
+            sh.intake_per_tick = rng.randrange(10, 150)
     return s
 
 
@@ -115,7 +129,7 @@ def main() -> None:
     test, train = order[:n_test], order[n_test:]
     lab_test = np.array([i for i in test if kinds[i] == "lab"])
 
-    targets, metrics = {}, {}
+    targets, ranges, metrics = {}, {}, {}
     for j, name in enumerate(TARGETS):
         model = GradientBoostingRegressor(random_state=SEED, **TREE_PARAMS).fit(X[train], Y[train, j])
         exported = {
@@ -127,6 +141,18 @@ def main() -> None:
         sample = X[test[:50]]
         assert np.allclose([predict_target(exported, list(x)) for x in sample], model.predict(sample), atol=1e-4)
         targets[name] = exported
+
+        # Low and high models give each estimate its own range.
+        bounds = {}
+        for side, alpha in zip(("low", "high"), RANGE):
+            q = GradientBoostingRegressor(loss="quantile", alpha=alpha, random_state=SEED, **RANGE_PARAMS).fit(X[train], Y[train, j])
+            bounds[side] = {"init": float(q.init_.constant_[0][0]), "learningRate": RANGE_PARAMS["learning_rate"],
+                            "trees": [export_tree(est[0]) for est in q.estimators_]}
+            assert np.allclose([predict_target(bounds[side], list(x)) for x in sample], q.predict(sample), atol=1e-4)
+        ranges[name] = bounds
+        low = np.array([predict_target(bounds["low"], list(x)) for x in X[test]])
+        high = np.array([predict_target(bounds["high"], list(x)) for x in X[test]])
+        inside = (np.minimum(low, high) <= Y[test, j] + 1e-9) & (Y[test, j] <= np.maximum(low, high) + 1e-9)
 
         def errors(idx):
             err = np.abs(model.predict(X[idx]) - Y[idx, j])
@@ -145,6 +171,8 @@ def main() -> None:
             "labMae": round(float(lab_err.mean()), 2),
             "labP90AbsError": round(float(np.percentile(lab_err, 90)), 2),
             "r2": round(1 - ss_res / ss_tot, 3) if ss_tot else None,
+            # Share of held-out cases whose true value fell inside the estimate's own range.
+            "rangeCoverage": round(float(inside.mean()), 3),
         }
         print(f"{name}: {metrics[name]}")
 
@@ -158,10 +186,11 @@ def main() -> None:
         "maxDepth": TREE_PARAMS["max_depth"],
         "trainedDate": date.today().isoformat(),
         "sklearnVersion": sklearn.__version__,
+        "engineFingerprint": engine_fingerprint(),
         "units": {"clearanceMinutes": "minutes", "unservedShare": "people", "peakCongestion": "ratio"},
         "testMetrics": metrics,
     }
-    MODEL_PATH.write_text(json.dumps({"featureNames": FEATURE_NAMES, "targets": targets, "card": card},
+    MODEL_PATH.write_text(json.dumps({"featureNames": FEATURE_NAMES, "targets": targets, "ranges": ranges, "card": card},
                                      separators=(",", ":")), encoding="utf-8")
     print(f"Wrote {MODEL_PATH} ({MODEL_PATH.stat().st_size / 1e6:.1f} MB) in {time.perf_counter() - started:.0f}s")
 

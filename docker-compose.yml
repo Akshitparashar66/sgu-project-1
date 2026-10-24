@@ -1,0 +1,38 @@
+# One command for the whole app, e.g. on a district server:
+#   docker compose up --build
+# then open http://localhost:3000. Planner data (imported scenarios, saved
+# plans and their audit log) lives in named volumes and survives rebuilds.
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    ports:
+      - "8000:8000"
+    environment:
+      # Add the address users open the app at if it isn't localhost:3000.
+      AEGIS_CORS_ORIGINS: ${AEGIS_CORS_ORIGINS:-}
+      # Optional JSON feed of river levels: {"gaugeId", "levelM", "observedAt"}.
+      AEGIS_RIVER_FEED_URL: ${AEGIS_RIVER_FEED_URL:-}
+    volumes:
+      - imported:/srv/data/imported
+      - plans:/srv/data/plans
+      - river:/srv/data/river
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: frontend
+      args:
+        # Where the browser reaches the API.
+        NEXT_PUBLIC_API_BASE_URL: ${AEGIS_API_URL:-http://localhost:8000}
+    ports:
+      - "3000:3000"
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+volumes:
+  imported:
+  plans:
+  river:

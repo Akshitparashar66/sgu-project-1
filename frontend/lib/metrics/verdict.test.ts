@@ -12,12 +12,12 @@ describe("verdictSummary", () => {
   it("names exactly what got better and what got worse, with the size of each change", () => {
     const summary = verdictSummary(comparison([
       metric("Peak congestion ratio", true, -1.3),
-      metric("Completion tick", false, 0.8),
+      metric("Clearance time (min)", false, 0.8),
       metric("Unserved agents", null),
     ]));
 
     expect(summary.improved).toEqual(["peak congestion ratio (-1.3%)"]);
-    expect(summary.worse).toEqual(["completion tick (+0.8%)"]);
+    expect(summary.worse).toEqual(["clearance time (min) (+0.8%)"]);
   });
 
   it("never counts simulation runtime as a plan outcome", () => {

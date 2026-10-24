@@ -24,7 +24,7 @@ export function ShelterLayer({ shelters, occupancyByShelterId, nodeById, selecti
       >
         <Tooltip direction="right" permanent className="aegis-label">
           {shelter.id} {shelter.name} · {occupied}/{shelter.totalCapacity}
-          {shelter.available ? "" : " · unavailable"}
+          {shelter.available ? "" : shelter.standby ? " · standby" : " · unavailable"}
         </Tooltip>
       </CircleMarker>
     );

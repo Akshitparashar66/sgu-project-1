@@ -26,7 +26,8 @@ def test_valid_scenario_is_accepted_with_a_summary():
     body = response.json()
     assert body["valid"] is True
     assert body["scenarioId"] == "scenario_a_normal"
-    assert body["summary"] == {"nodes": 6, "edges": 7, "zones": 2, "shelters": 3, "evacuees": 1500, "shelterCapacity": 1800}
+    assert body["summary"] == {"nodes": 6, "edges": 7, "zones": 2, "shelters": 3, "evacuees": 1500, "shelterCapacity": 1800,
+                               "standbyShelters": 1, "standbyCapacity": 300}
 
 
 def test_shape_errors_come_back_as_actionable_field_messages():

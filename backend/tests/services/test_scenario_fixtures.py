@@ -12,7 +12,9 @@ def _load(scenario_id: str) -> ScenarioConfig:
 def test_scenario_a_is_fully_open_and_all_shelters_available():
     scenario = _load("scenario_a_normal")
     assert all(e.status == RoadStatus.OPEN for e in scenario.edges)
-    assert all(s.available for s in scenario.shelters)
+    assert all(s.available for s in scenario.shelters if not s.standby)
+    # The standby hall is for the optimizer to open, never part of the default plan.
+    assert [s.id for s in scenario.shelters if s.standby and not s.available] == ["S4"]
 
 
 def test_scenario_b_closes_exactly_the_critical_bridge_and_nothing_else():

@@ -8,6 +8,7 @@ import { ScenarioLabView } from "./ScenarioLabView";
 vi.mock("@/lib/api/client", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/lib/api/client")>()),
   predictOutcome: vi.fn(() => new Promise(() => {})),
+  findWeakPoints: vi.fn(() => new Promise(() => {})),
 }));
 
 const scenario: ScenarioConfig = {
@@ -22,7 +23,7 @@ const scenario: ScenarioConfig = {
 
 function stubActions(): AegisActions {
   return {
-    loadScenario: vi.fn(), run: vi.fn(), generatePlan: vi.fn(), toggleEdge: vi.fn(), toggleShelter: vi.fn(),
+    loadScenario: vi.fn(), openScenario: vi.fn(), run: vi.fn(), generatePlan: vi.fn(), toggleEdge: vi.fn(), toggleShelter: vi.fn(),
     clearOverrides: vi.fn(), setSeed: vi.fn(), select: vi.fn(), reset: vi.fn(),
   };
 }

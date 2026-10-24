@@ -63,7 +63,10 @@ def scenario_summary(scenario: ScenarioConfig) -> dict:
         "nodes": len(scenario.nodes),
         "edges": len(scenario.edges),
         "zones": len(scenario.zones),
-        "shelters": len(scenario.shelters),
+        # Places available to the default plan; standby sites are listed separately.
+        "shelters": sum(1 for s in scenario.shelters if s.available),
         "evacuees": sum(z.evacuee_count for z in scenario.zones),
-        "shelterCapacity": sum(s.total_capacity for s in scenario.shelters),
+        "shelterCapacity": sum(s.total_capacity for s in scenario.shelters if s.available),
+        "standbyShelters": sum(1 for s in scenario.shelters if s.standby and not s.available),
+        "standbyCapacity": sum(s.total_capacity for s in scenario.shelters if s.standby and not s.available),
     }

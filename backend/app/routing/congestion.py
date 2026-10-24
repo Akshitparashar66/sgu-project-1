@@ -5,35 +5,33 @@ from app.simulation.protocols import CongestionModelProtocol  # NOT from app.sim
 
 
 class CongestionModel(CongestionModelProtocol):
-    """Capacity-ratio congestion model (PRD §6.6). Documented formula, not
-    a validated real-traffic model:
+    """Bottleneck (point-queue) model of pedestrian congestion (PRD §6.6).
 
-        ratio = agents_entering_this_tick / edge.capacity_per_tick
-        factor = 1.0                              if ratio <= 1.0
-                 1.0 + (ratio - 1.0) * PENALTY     otherwise
-        effective_time_s = edge.base_travel_time_s * factor
+    A road lets at most `capacity_per_tick` people start along it each tick:
+    its usable width times the peak pedestrian flow, over one tick. Everyone
+    else waits in line at the junction, longest-waiting first, and walks at
+    normal speed once on the road. Congestion therefore shows up as time
+    spent queueing, never as a whole crowd slowing down together.
+
+    The reported congestion ratio is demand over capacity: people wanting to
+    start along the road in a tick (including those already in line),
+    divided by how many it lets in. Documented model, not calibrated to
+    observed crowds; see docs/ASSUMPTIONS.md.
     """
-
-    PENALTY = 1.5  # tunable; documented here, not buried in a magic number elsewhere
 
     def __init__(self, scenario: ScenarioConfig, params: SimulationParams):
         self._edges_by_id = {e.id: e for e in scenario.edges}
         self._peak: dict[str, tuple[float, int]] = {}
 
-    def _ratio(self, edge_id: str, agents_entering: int) -> float:
-        edge = self._edges_by_id[edge_id]
-        if edge.capacity_per_tick <= 0:
-            return 0.0
-        return agents_entering / edge.capacity_per_tick
+    def entry_capacity(self, edge_id: str) -> int:
+        return self._edges_by_id[edge_id].capacity_per_tick
 
-    def effective_travel_time_s(self, edge_id: str, tick: int, agents_entering: int) -> float:
-        edge = self._edges_by_id[edge_id]
-        ratio = self._ratio(edge_id, agents_entering)
-        factor = 1.0 if ratio <= 1.0 else 1.0 + (ratio - 1.0) * self.PENALTY
-        return edge.base_travel_time_s * factor
+    def travel_time_s(self, edge_id: str) -> float:
+        return self._edges_by_id[edge_id].base_travel_time_s
 
-    def register_tick(self, edge_id: str, tick: int, agents_entering: int) -> None:
-        ratio = self._ratio(edge_id, agents_entering)
+    def register_tick(self, edge_id: str, tick: int, demand: int) -> None:
+        capacity = self._edges_by_id[edge_id].capacity_per_tick
+        ratio = demand / capacity if capacity > 0 else 0.0
         prev_ratio, _ = self._peak.get(edge_id, (-1.0, tick))
         if ratio > prev_ratio:
             self._peak[edge_id] = (ratio, tick)

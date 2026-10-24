@@ -16,7 +16,7 @@ def test_apply_overrides_closes_edges_and_disables_shelters_on_a_copy():
     assert next(s for s in overridden.shelters if s.id == "S2").available is False
     # The loaded scenario itself is untouched.
     assert next(e for e in scenario.edges if e.id == "E3").status == RoadStatus.OPEN
-    assert all(s.available for s in scenario.shelters)
+    assert all(s.available for s in scenario.shelters if not s.standby)
 
 
 def test_unknown_override_ids_are_rejected_with_the_offending_field():

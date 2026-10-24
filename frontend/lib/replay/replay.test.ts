@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { AgentResult, RunResult, ScenarioConfig } from "@/lib/schemas/types";
-import { arrivalsSeries, buildReplay, countsAt, framesAt, occupancyAt } from "./replay";
+import { arrivalsSeries, buildReplay, countsAt, framesAt, occupancyAt, scenarioAt } from "./replay";
 
 // N1 (zone) --E1--> N2 <--E2-- N3 (shelter). E2 is stored N3->N2 but walked N2->N3.
 const scenario: ScenarioConfig = {
@@ -42,6 +42,38 @@ function frame(replay: ReturnType<typeof buildReplay>, t: number, id: string) {
 }
 
 describe("replay", () => {
+  it("shows someone waiting outside a shelter that hasn't let them in yet as delayed, at the shelter", () => {
+    const atDoor = agent({ id: "door", edgeEntryTicks: [0, 2], edgeExitTicks: [1, 3], arrivalTick: 9 });
+    const replay = buildReplay(scenario, run([atDoor]));
+
+    expect(frame(replay, 6, "door")).toMatchObject({ lon: 2, status: "delayed" });
+    expect(frame(replay, 9, "door").status).toBe("arrived");
+  });
+
+  it("draws a road as closed from the tick it floods", () => {
+    const flooding = { ...scenario, edges: scenario.edges.map((e) => (e.id === "E1" ? { ...e, closesAtTick: 5 } : e)) };
+    expect(scenarioAt(flooding, 4).edges[0].status).toBe("open");
+    expect(scenarioAt(flooding, 5).edges[0].status).toBe("closed");
+  });
+
+  it("shows people in line for a road as delayed where they wait, not as unserved", () => {
+    // Leaves at tick 0 but E1 lets them in only at tick 2; E2 only at tick 6 after leaving E1 at tick 3.
+    const queued = agent({ id: "queued", edgeEntryTicks: [2, 6], edgeExitTicks: [3, 7], arrivalTick: 7 });
+    const replay = buildReplay(scenario, run([queued]));
+
+    expect(frame(replay, 1, "queued")).toMatchObject({ lon: 0, status: "delayed" }); // at the zone
+    expect(frame(replay, 5, "queued")).toMatchObject({ lon: 1, status: "delayed" }); // at the junction
+    expect(frame(replay, 7, "queued").status).toBe("arrived");
+  });
+
+  it("counts someone still in line when time runs out as unserved", () => {
+    const stuck = agent({ id: "stuck", status: "unserved", edgeEntryTicks: [], edgeExitTicks: [] });
+    const replay = buildReplay(scenario, run([stuck], true));
+
+    expect(frame(replay, 3, "stuck").status).toBe("delayed");
+    expect(frame(replay, 20, "stuck").status).toBe("unserved");
+  });
+
   it("holds a staged evacuee at its zone as waiting until its wave leaves", () => {
     const staged = agent({ id: "staged", departureTick: 10, edgeEntryTicks: [10, 12], edgeExitTicks: [11, 13], arrivalTick: 13 });
     const replay = buildReplay(scenario, run([staged]));

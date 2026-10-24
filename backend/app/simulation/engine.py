@@ -14,6 +14,7 @@ from app.routing.assignment import assign_shelters_and_routes
 from app.routing.congestion import CongestionModel
 from app.routing.graph import build_graph
 from app.services.scenario_overrides import apply_overrides
+from app.simulation.dynamics import RoadClosures, other_end
 from app.simulation.protocols import CongestionModelProtocol
 
 # Multiplier applied to an edge's effective travel time by movement profile.
@@ -37,6 +38,22 @@ class _AgentState:
     rejected: bool = False
     entry_ticks: list[int] = field(default_factory=list)
     exit_ticks: list[int] = field(default_factory=list)
+    # Tick it joined the line for its next road (its departure tick for the first one).
+    ready_since: int = 0
+    # The route actually walked: the plan's, unless a road flooded and it re-routed.
+    route: list[str] = field(default_factory=list)
+    node: str = ""  # junction it is at or last left
+    at_door: bool = False  # walked the whole route, waiting to be let into the shelter
+    door_since: int = 0
+    cut_off: bool = False  # every way to its shelter flooded
+
+
+def queue_order_key(plan: AgentPlan) -> tuple:
+    """Tie-break between people who joined a road's line in the same tick: a
+    fixed order over identical groups (same route, profile, departure and
+    shelter). Any fixed order is as fair as another; this one lets the
+    group-level simulation (app.simulation.cohort) reproduce the engine exactly."""
+    return (tuple(plan.route_edge_ids), plan.movement_profile, plan.departure_tick, plan.assigned_shelter or "")
 
 
 def _active(a: _AgentState) -> bool:
@@ -45,6 +62,35 @@ def _active(a: _AgentState) -> bool:
 
 def _not_yet_departed(a: _AgentState, tick: int) -> bool:
     return a.status == AgentStatus.WAITING and tick < a.plan.departure_tick
+
+
+def _needs_next_edge(a: _AgentState) -> bool:
+    """Not yet on a road: about to start, or just off one and in line for the next."""
+    return not a.at_door and (a.status == AgentStatus.WAITING or a.ticks_remaining_on_edge <= 0)
+
+
+def route_start(route, edges_by_id: dict, zone_node: str | None) -> str:
+    """The junction a route starts from: the zone's, or worked out from the route itself."""
+    if zone_node:
+        return zone_node
+    first = edges_by_id[route[0]]
+    if len(route) > 1:
+        second = edges_by_id[route[1]]
+        return first.target if first.source in (second.source, second.target) else first.source
+    return first.source
+
+
+def admit_at_door(shelter, tick: int, waiting: int) -> int:
+    """How many of `waiting` people a shelter lets in this tick: none before it
+    opens, at most `intake_per_tick`, never past capacity."""
+    if shelter is None or tick < shelter.opens_at_tick:
+        return 0
+    free = max(0, shelter.total_capacity - shelter.occupied)
+    return min(waiting, free, shelter.intake_per_tick or waiting)
+
+
+def shelter_full(shelter) -> bool:
+    return shelter is None or shelter.occupied >= shelter.total_capacity
 
 
 def simulate(
@@ -60,9 +106,16 @@ def simulate(
 
     shelters_by_id = {s.id: s.model_copy(deep=True) for s in scenario.shelters}
     edges_by_id = {e.id: e for e in scenario.edges}
-    agents = [_AgentState(plan=p) for p in plans]
-    # Seconds of congestion delay (effective minus free-flow travel time),
-    # summed over every agent that entered each edge.
+    zone_nodes = {z.id: z.connector_node for z in scenario.zones}
+    closures = RoadClosures(scenario)
+    agents = [
+        _AgentState(plan=p, ready_since=p.departure_tick, route=list(p.route_edge_ids),
+                    node=route_start(p.route_edge_ids, edges_by_id, zone_nodes.get(p.origin_zone)) if p.route_edge_ids else "")
+        for p in plans
+    ]
+    order_keys = [queue_order_key(p) for p in plans]
+    door: dict[str, list[int]] = {}
+    # Seconds spent waiting in line for each road, summed over everyone.
     delay_by_edge: dict[str, float] = {}
 
     # Agents with no feasible route are unserved from tick 0 — never
@@ -87,60 +140,80 @@ def simulate(
             hit_tick_limit = True
             break
 
-        entering_by_edge: dict[str, int] = {}
-        for a in agents:
+        # Everyone who wants to start along a road this tick, by road. Anyone
+        # whose next road has flooded re-routes from where they stand first.
+        in_line: dict[str, list[int]] = {}
+        for i, a in enumerate(agents):
+            if _active(a) and not _not_yet_departed(a, tick) and _needs_next_edge(a):
+                if closures.any and closures.is_closed(a.route[a.edge_index], tick):
+                    detour = closures.detour(a.node, a.plan.assigned_shelter, tick)
+                    if detour is None:
+                        a.status = AgentStatus.UNSERVED
+                        a.cut_off = True
+                        continue
+                    a.route = a.route[:a.edge_index] + list(detour)
+                in_line.setdefault(a.route[a.edge_index], []).append(i)
+
+        # Each road lets in at most its capacity, longest-waiting first.
+        admitted: set[int] = set()
+        for edge_id, line in in_line.items():
+            congestion_model.register_tick(edge_id, tick, len(line))
+            line.sort(key=lambda i: (agents[i].ready_since, order_keys[i], i))
+            admitted.update(line[:congestion_model.entry_capacity(edge_id)])
+
+        for i, a in enumerate(agents):
             if not _active(a) or _not_yet_departed(a, tick):
                 continue
-            about_to_enter = a.status == AgentStatus.WAITING or a.ticks_remaining_on_edge <= 0
-            if about_to_enter:
-                edge_id = a.plan.route_edge_ids[a.edge_index]
-                entering_by_edge[edge_id] = entering_by_edge.get(edge_id, 0) + 1
 
-        for a in agents:
-            if not _active(a) or _not_yet_departed(a, tick):
+            if a.at_door:
                 continue
-
-            if a.status == AgentStatus.WAITING:
-                a.status = AgentStatus.MOVING
-                a.ticks_remaining_on_edge = -1  # force recompute below
-
-            if a.ticks_remaining_on_edge < 0:
-                edge_id = a.plan.route_edge_ids[a.edge_index]
+            if _needs_next_edge(a):
+                edge_id = a.route[a.edge_index]
+                if i not in admitted:
+                    a.status = AgentStatus.DELAYED
+                    a.ticks_remaining_on_edge = 0
+                    delay_by_edge[edge_id] = delay_by_edge.get(edge_id, 0.0) + params.tick_seconds
+                    continue
                 multiplier = MOVEMENT_PROFILE_TIME_MULTIPLIER.get(a.plan.movement_profile, 1.0)
-                effective_s = congestion_model.effective_travel_time_s(
-                    edge_id, tick, entering_by_edge.get(edge_id, 0)
-                )
-                congestion_model.register_tick(edge_id, tick, entering_by_edge.get(edge_id, 0))
-                base_s = edges_by_id[edge_id].base_travel_time_s
-                delay_by_edge[edge_id] = delay_by_edge.get(edge_id, 0.0) + max(0.0, effective_s - base_s)
-                ticks_needed = max(1, round((effective_s * multiplier) / params.tick_seconds))
-                a.ticks_remaining_on_edge = ticks_needed
+                travel_s = congestion_model.travel_time_s(edge_id)
+                a.ticks_remaining_on_edge = max(1, round((travel_s * multiplier) / params.tick_seconds))
                 a.entry_ticks.append(tick)
-                a.status = (
-                    AgentStatus.DELAYED
-                    if effective_s > base_s * 1.1
-                    else AgentStatus.MOVING
-                )
+                a.status = AgentStatus.MOVING
 
             a.ticks_remaining_on_edge -= 1
             if a.ticks_remaining_on_edge > 0:
                 continue
 
             a.exit_ticks.append(tick)
+            a.node = other_end(edges_by_id, a.route[a.edge_index], a.node)
             a.edge_index += 1
-            if a.edge_index < len(a.plan.route_edge_ids):
-                a.ticks_remaining_on_edge = -1
-                a.status = AgentStatus.MOVING
+            if a.edge_index < len(a.route):
+                a.ticks_remaining_on_edge = 0
+                a.ready_since = tick + 1
                 continue
 
-            shelter = shelters_by_id.get(a.plan.assigned_shelter)
-            if shelter is not None and shelter.occupied < shelter.total_capacity:
+            a.at_door = True
+            a.door_since = tick
+            a.status = AgentStatus.DELAYED
+            door.setdefault(a.plan.assigned_shelter, []).append(i)
+
+        # Shelter doors: let people in, keep them waiting outside, or turn them away once full.
+        for shelter_id, queue in door.items():
+            if not queue:
+                continue
+            shelter = shelters_by_id.get(shelter_id)
+            queue.sort(key=lambda i: (agents[i].door_since, order_keys[i], i))
+            take = admit_at_door(shelter, tick, len(queue))
+            for i in queue[:take]:
                 shelter.occupied += 1
-                a.status = AgentStatus.ARRIVED
-                a.arrival_tick = tick
-            else:
-                a.status = AgentStatus.UNSERVED
-                a.rejected = True
+                agents[i].status = AgentStatus.ARRIVED
+                agents[i].arrival_tick = tick
+            del queue[:take]
+            if shelter_full(shelter):
+                for i in queue:
+                    agents[i].status = AgentStatus.UNSERVED
+                    agents[i].rejected = True
+                queue.clear()
 
         tick += 1
 
@@ -150,11 +223,17 @@ def simulate(
             warnings.append(
                 f"Agent {a.plan.agent_id} did not resolve within max_ticks={params.max_ticks}"
             )
+    cut_off_by_zone: dict[str, int] = {}
+    for a in agents:
+        if a.cut_off:
+            cut_off_by_zone[a.plan.origin_zone] = cut_off_by_zone.get(a.plan.origin_zone, 0) + 1
+    warnings.extend(f"{count} agents from zone {zone_id} were cut off: every road to their shelter flooded"
+                    for zone_id, count in cut_off_by_zone.items())
 
     agent_results = [
         AgentResult(
             id=a.plan.agent_id, origin_zone=a.plan.origin_zone,
-            assigned_shelter=a.plan.assigned_shelter, route_edge_ids=a.plan.route_edge_ids,
+            assigned_shelter=a.plan.assigned_shelter, route_edge_ids=a.route,
             status=a.status, arrival_tick=a.arrival_tick, movement_profile=a.plan.movement_profile,
             departure_tick=a.plan.departure_tick,
             edge_entry_ticks=a.entry_ticks, edge_exit_ticks=a.exit_ticks,

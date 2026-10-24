@@ -1,4 +1,4 @@
-from app.models.schemas import RoadEdge, RoadStatus, ScenarioConfig, RoadNode, Shelter, SimulationParams
+from app.models.schemas import RoadEdge, RoadNode, RoadStatus, ScenarioConfig, Shelter, SimulationParams
 from app.routing.congestion import CongestionModel
 
 
@@ -13,29 +13,16 @@ def _scenario() -> ScenarioConfig:
     )
 
 
-def test_at_or_under_capacity_has_no_penalty():
+def test_a_road_admits_its_capacity_per_tick_at_normal_walking_time():
     model = CongestionModel(_scenario(), SimulationParams())
-    assert model.effective_travel_time_s("E1", tick=0, agents_entering=10) == 100.0
+    assert model.entry_capacity("E1") == 10
+    assert model.travel_time_s("E1") == 100.0
 
 
-def test_over_capacity_increases_travel_time():
+def test_peak_congestion_is_demand_over_capacity_at_its_worst_tick():
     model = CongestionModel(_scenario(), SimulationParams())
-    effective = model.effective_travel_time_s("E1", tick=0, agents_entering=20)  # ratio = 2.0
-    assert effective > 100.0
+    model.register_tick("E1", tick=0, demand=5)   # ratio 0.5
+    model.register_tick("E1", tick=1, demand=25)  # ratio 2.5 <- peak
+    model.register_tick("E1", tick=2, demand=10)  # ratio 1.0
 
-
-def test_over_capacity_penalty_follows_the_documented_formula():
-    # ratio 2.0 -> factor 1 + (2.0 - 1.0) * 1.5 = 2.5 -> 250s
-    model = CongestionModel(_scenario(), SimulationParams())
-    assert model.effective_travel_time_s("E1", tick=0, agents_entering=20) == 250.0
-
-
-def test_peak_congestion_tracks_highest_ratio_and_its_tick():
-    model = CongestionModel(_scenario(), SimulationParams())
-    model.register_tick("E1", tick=0, agents_entering=5)   # ratio 0.5
-    model.register_tick("E1", tick=1, agents_entering=25)  # ratio 2.5 <- peak
-    model.register_tick("E1", tick=2, agents_entering=10)  # ratio 1.0
-
-    peak = model.peak_congestion()
-
-    assert peak["E1"] == (2.5, 1)
+    assert model.peak_congestion()["E1"] == (2.5, 1)

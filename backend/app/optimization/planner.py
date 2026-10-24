@@ -6,10 +6,12 @@ import uuid
 from pydantic import Field
 
 from app.models.schemas import CamelModel, RunMetrics, RunResult, ScenarioConfig, SimulationParams
-from app.optimization.search import ITERATIONS, mean_hazard_ticks, optimize_plan, plan_score
+from app.optimization.bounds import clearance_lower_bound
+from app.optimization.search import ITERATIONS, mean_hazard_ticks, optimize_plan, plan_score, with_every_lever
 from app.routing.assignment import assign_shelters_and_routes
 from app.routing.congestion import CongestionModel
 from app.routing.graph import build_graph
+from app.services.robustness import plan_robustness
 from app.services.scenario_overrides import apply_overrides
 from app.simulation.engine import simulate
 
@@ -56,8 +58,9 @@ def generate_alternative_plan(request: OptimizationRequest) -> dict:
     search_ms = (time.perf_counter() - started) * 1000
     # The search scores candidates with the cohort simulation; the plan it
     # returns is re-run on the real engine, and only that run is reported.
-    alt_result = simulate(scenario, search.plans, params,
-                            CongestionModel(scenario, params), plan_label="alternative")
+    # Run on the scenario as the plan changes it (standby shelters opened, marshals posted).
+    alt_result = simulate(search.scenario, search.plans, params,
+                            CongestionModel(search.scenario, params), plan_label="alternative")
 
     base, alt = baseline_result.metrics, alt_result.metrics
     search_info = {
@@ -66,6 +69,9 @@ def generate_alternative_plan(request: OptimizationRequest) -> dict:
         "plansEvaluated": search.evaluations,
         "blockSize": search.block_size,
         "runtimeMs": round(search_ms),
+        # No plan can clear sooner than this (walking time and road capacity limits).
+        # Computed as if every standby shelter were opened and every road marshalled, so it holds for any plan.
+        "clearanceLowerBoundMinutes": _bound_minutes(clearance_lower_bound(with_every_lever(scenario), params), params),
     }
     orders = [
         {"zoneId": o.zone_id, "movementProfile": o.movement_profile, "people": o.people,
@@ -73,8 +79,16 @@ def generate_alternative_plan(request: OptimizationRequest) -> dict:
          "departureMinute": o.departure_tick * params.tick_seconds / 60}
         for o in search.orders
     ]
+    robustness = plan_robustness(scenario, baseline_plans, search.plans, params, request.random_seed,
+                                 search.scenario, search.levers.cost)
+    names = {s.id: s.name for s in scenario.shelters}
+    interventions = {
+        "openedShelters": [{"shelterId": s, "name": names[s]} for s in sorted(search.levers.opened)],
+        "marshalledRoads": sorted(search.levers.marshals),
+    }
     improved = (alt.unserved_count <= base.unserved_count
-                and _run_score(scenario, alt_result, params) < _run_score(scenario, baseline_result, params))
+                and _run_score(search.scenario, alt_result, params) + search.levers.cost
+                < _run_score(scenario, baseline_result, params))
 
     if not improved:
         return {
@@ -88,7 +102,8 @@ def generate_alternative_plan(request: OptimizationRequest) -> dict:
             # behind the verdict; the candidate is labeled, never promoted.
             "baselineRun": baseline_result.model_dump(by_alias=True),
             "alternativeRun": alt_result.model_dump(by_alias=True),
-            "changes": [], "tradeOffs": [], "orders": orders, "search": search_info,
+            "changes": [], "tradeOffs": [], "orders": orders, "search": search_info, "robustness": robustness,
+            "interventions": interventions,
         }
 
     changes = []
@@ -112,7 +127,12 @@ def generate_alternative_plan(request: OptimizationRequest) -> dict:
         "changes": changes,
         "orders": orders,
         "search": search_info,
+        "robustness": robustness,
+        "interventions": interventions,
         "tradeOffs": [
+            *[f"opens standby shelter {s['name']} ({s['shelterId']})" for s in interventions["openedShelters"]],
+            *([f"marshal teams on road(s) {', '.join(interventions['marshalledRoads'])}"]
+              if interventions["marshalledRoads"] else []),
             f"{len(changes)} of {len(search.plans)} evacuees go to a different shelter",
             (f"{len(staged)} evacuees leave in later waves (up to +{_minutes(max(staged), params)} min)"
              if staged else "everyone leaves at once, as in the baseline"),
@@ -127,6 +147,10 @@ def generate_alternative_plan(request: OptimizationRequest) -> dict:
     }
 
 
+def _bound_minutes(ticks: int | None, params: SimulationParams) -> float | None:
+    return None if ticks is None else ticks * params.tick_seconds / 60
+
+
 def _mean_arrival(run: RunResult) -> float:
     ticks = [a.arrival_tick for a in run.agents if a.arrival_tick is not None]
     return sum(ticks) / len(ticks) if ticks else 0.0
@@ -134,10 +158,12 @@ def _mean_arrival(run: RunResult) -> float:
 
 def _run_score(scenario: ScenarioConfig, run: RunResult, params: SimulationParams) -> float:
     """The optimizer's objective, computed from a real engine run."""
-    routes = [(tuple(a.route_edge_ids), 1) for a in run.agents if a.route_edge_ids]
+    routed = [a for a in run.agents if a.route_edge_ids]
+    routes = [(tuple(a.route_edge_ids), 1) for a in routed]
+    orders = len({(tuple(a.route_edge_ids), a.movement_profile, a.departure_tick, a.assigned_shelter) for a in routed})
     m = run.metrics
     return plan_score(m.unserved_count, m.completion_tick, _mean_arrival(run), m.max_congestion_ratio,
-                      params.max_ticks, mean_hazard_ticks(scenario, routes, params.tick_seconds))
+                      params.max_ticks, mean_hazard_ticks(scenario, routes, params.tick_seconds), orders)
 
 
 def _on_hazard_roads(scenario: ScenarioConfig, run: RunResult) -> int:

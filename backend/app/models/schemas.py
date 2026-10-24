@@ -56,6 +56,9 @@ class RoadEdge(CamelModel):
     # target. Drawing only: the simulation uses length_m and travel times.
     # None => drawn as a straight line between the two nodes.
     geometry: Optional[list[tuple[float, float]]] = Field(default=None, min_length=2)
+    # Floods (or is otherwise lost) at this tick: from then on nobody can start
+    # along it, and anyone in line for it re-routes. None = stays as `status`.
+    closes_at_tick: Optional[int] = Field(default=None, ge=0)
 
 
 class PopulationZone(CamelModel):
@@ -74,6 +77,13 @@ class Shelter(CamelModel):
     total_capacity: int = Field(gt=0)
     occupied: int = Field(default=0, ge=0)
     available: bool = True
+    # Doors open at this tick (staff, keys, a cleared building); arrivals before then wait outside.
+    opens_at_tick: int = Field(default=0, ge=0)
+    # People the door can register per tick; None = no limit.
+    intake_per_tick: Optional[int] = Field(default=None, gt=0)
+    # A site the default plan doesn't use (available=False) that the plan
+    # optimizer may choose to open, at a cost; it then opens at opens_at_tick.
+    standby: bool = False
 
     @field_validator("occupied")
     @classmethod
@@ -111,6 +121,8 @@ class ScenarioConfig(CamelModel):
     shelters: list[Shelter]
     hazards: list[HazardZone] = Field(default_factory=list)
     default_params: SimulationParams
+    # Marshal teams the plan optimizer may post on roads to keep crowds moving.
+    marshal_teams: int = Field(default=0, ge=0)
 
 
 class AgentPlan(CamelModel):

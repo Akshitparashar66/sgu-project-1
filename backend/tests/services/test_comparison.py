@@ -40,7 +40,7 @@ def test_completion_time_marked_incomparable_when_either_run_hit_the_limit():
     result = compare_runs(CompareRequest(baseline_run=baseline, alternative_run=alternative))
 
     assert any("not comparable" in w for w in result.warnings)
-    assert not any(m.metric_name == "Completion tick" for m in result.metrics)
+    assert not any(m.metric_name.startswith("Clearance time") for m in result.metrics)
 
 
 def test_lower_unserved_in_alternative_is_reported_as_improved():
@@ -52,3 +52,13 @@ def test_lower_unserved_in_alternative_is_reported_as_improved():
     unserved_metric = next(m for m in result.metrics if m.metric_name == "Unserved agents")
     assert unserved_metric.improved is True
     assert unserved_metric.absolute_diff == -10
+
+
+def test_time_metrics_are_reported_in_minutes_when_the_tick_length_is_known():
+    baseline = _run("b1", evacuated=10, unserved=0, completion_tick=40, hit_tick_limit=False, congestion=1.0)
+    alternative = _run("a1", evacuated=10, unserved=0, completion_tick=20, hit_tick_limit=False, congestion=1.0)
+
+    result = compare_runs(CompareRequest(baseline_run=baseline, alternative_run=alternative, tick_seconds=30))
+
+    clearance = next(m for m in result.metrics if m.metric_name == "Clearance time (min)")
+    assert (clearance.baseline_value, clearance.alternative_value, clearance.improved) == (20.0, 10.0, True)

@@ -34,11 +34,14 @@ def test_estimate_lands_within_its_stated_error_of_the_real_run(scenario):
 def test_estimate_follows_what_if_changes():
     open_roads = predict("scenario_a_normal")
     # Losing the school camp leaves 1,200 places for 1,500 people: the
-    # simulation turns 300 away (and the rest clear sooner, at 83 min).
+    # simulation turns 300 away. (Clearance barely moves, 59 -> 58.5 min:
+    # less than the model's error, so only unserved is checked here.)
     lost_camp = predict("scenario_a_normal", closedEdgeIds=["E3"], unavailableShelterIds=["S1"])
-    assert open_roads["unservedCount"] < 20
-    assert abs(lost_camp["unservedCount"] - 300) <= 2 * lost_camp["model"]["testMetrics"]["unservedShare"]["labP90AbsError"]
-    assert lost_camp["clearanceMinutes"] < open_roads["clearanceMinutes"]
+    allowed = 2 * lost_camp["model"]["testMetrics"]["unservedShare"]["labP90AbsError"]
+    assert open_roads["unservedCount"] <= allowed
+    assert abs(lost_camp["unservedCount"] - 300) <= allowed
+    low, high = lost_camp["ranges"]["unservedCount"]
+    assert low <= lost_camp["unservedCount"] <= high
 
 
 def test_features_do_not_depend_on_road_or_shelter_ids():
@@ -73,3 +76,9 @@ def test_bad_requests_are_rejected():
     assert client.post("/api/predict", json={"scenarioId": "nope"}).json()["errorCode"] == "SCENARIO_NOT_FOUND"
     response = client.post("/api/predict", json={"scenarioId": "scenario_a_normal", "closedEdgeIds": ["E99"]})
     assert response.status_code == 400 and response.json()["errorCode"] == "INVALID_OVERRIDE"
+
+
+def test_model_was_trained_on_the_current_simulation_code():
+    # Fails whenever the engine, routing or features change without
+    # retraining: python scripts/train_surrogate.py
+    assert predict("scenario_a_normal")["outOfDate"] is False

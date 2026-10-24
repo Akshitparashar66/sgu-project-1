@@ -19,3 +19,15 @@ Thumbs.db
 
 # browser-automation logs and snapshots
 .playwright-mcp/
+
+# scenarios built from uploaded (possibly real) data
+data/imported/
+
+# raw OpenStreetMap download used by data/build_detailed_network.py
+data/network/.cache/
+
+# saved plans and their audit log (planner data)
+data/plans/
+
+# river thresholds set in the app and readings received (planner data)
+data/river/
