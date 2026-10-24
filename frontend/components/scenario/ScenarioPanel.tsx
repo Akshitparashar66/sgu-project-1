@@ -3,6 +3,7 @@
 import { GitCompareArrows, Loader2, Play, X } from "lucide-react";
 
 import { FindingsList } from "@/components/insights/FindingsList";
+import { AppliedAlerts } from "@/components/alerts/AppliedAlerts";
 import { RiverLevel } from "@/components/river/RiverLevel";
 import { buildRecommendations } from "@/lib/insights/recommendations";
 import { hasOverrides } from "@/lib/scenario/overrides";
@@ -23,7 +24,7 @@ export function ScenarioPanel({ state, effectiveScenario, actions, onOpenCompari
   const evacuees = scenario.zones.reduce((sum, z) => sum + z.evacueeCount, 0);
   const capacity = scenario.shelters.filter((s) => s.available).reduce((sum, s) => sum + s.totalCapacity, 0);
   const closedRoads = scenario.edges.filter((e) => e.status === "closed").length;
-  const { closedEdgeIds, unavailableShelterIds } = state.overrides;
+  const { closedEdgeIds, unavailableShelterIds, edgeCapacityFactors } = state.overrides;
 
   return (
     <aside aria-label="Scenario controls" className="flex w-80 shrink-0 flex-col gap-4 overflow-y-auto border-r border-slate-200 bg-slate-50 p-4">
@@ -56,10 +57,14 @@ export function ScenarioPanel({ state, effectiveScenario, actions, onOpenCompari
             {unavailableShelterIds.map((id) => (
               <OverrideChip key={id} label={`Shelter ${id} unavailable`} onRemove={() => actions.toggleShelter(id)} />
             ))}
+            {Object.entries(edgeCapacityFactors).map(([id, factor]) => (
+              <OverrideChip key={`cap-${id}`} label={`Road ${id} at ${Math.round(factor * 100)}%`} onRemove={() => actions.setEdgeCapacity(id, null)} />
+            ))}
           </ul>
         ) : (
           <p className="mt-1 text-xs text-slate-500">Click a road or shelter on the map to close it, or use the Scenario Lab.</p>
         )}
+        <AppliedAlerts state={state} />
       </section>
 
       <div className="flex flex-col gap-2">

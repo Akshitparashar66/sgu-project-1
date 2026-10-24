@@ -38,4 +38,15 @@ describe("AppShell", () => {
 
     expect(onNavigate).toHaveBeenCalledWith("plan-comparison");
   });
+
+  it("shows open alerts on the Alerts item and the banner above every page", () => {
+    render(
+      <AppShell activeNavId="overview" scenarioName="x" simulationStatus="idle" onReset={vi.fn()}
+        badges={{ alerts: 2 }} banner={<div role="alert">Hindon at danger level</div>}>
+        <div />
+      </AppShell>
+    );
+    expect(screen.getByRole("link", { name: /Alerts/ })).toHaveTextContent("2");
+    expect(screen.getByRole("alert")).toHaveTextContent("Hindon at danger level");
+  });
 });

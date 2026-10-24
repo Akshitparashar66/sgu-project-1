@@ -43,3 +43,18 @@ def test_unknown_plans_and_bad_ids_are_rejected():
     assert client.get("/api/plans/no-such-plan").json()["errorCode"] == "PLAN_NOT_FOUND"
     assert client.get("/api/plans/..%2Fsecrets").status_code == 404
     assert client.post("/api/plans", json={**PLAN, "name": ""}).status_code == 422
+
+
+def test_a_plan_records_live_conditions_and_older_plans_stay_intact():
+    from app.services.plan_store import content_hash
+
+    plan = client.post("/api/plans", json={**PLAN, "scenarioId": "scenario_a_normal",
+                                           "edgeCapacityFactors": {"E4": 0.5}, "alertIds": ["traffic:nh9"]}).json()
+    assert plan["edgeCapacityFactors"] == {"E4": 0.5} and plan["alertIds"] == ["traffic:nh9"]
+    assert client.get(f"/api/plans/{plan['id']}").json()["intact"]
+
+    # A plan saved before live conditions existed has neither key; its fingerprint must not change.
+    older = client.post("/api/plans", json=PLAN).json()
+    assert "edgeCapacityFactors" not in older and "alertIds" not in older
+    path = Path(os.environ["AEGIS_PLANS_DIR"]) / f"{older['id']}.json"
+    assert content_hash(json.loads(path.read_text(encoding="utf-8"))) == older["contentHash"]

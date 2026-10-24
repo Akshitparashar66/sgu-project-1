@@ -20,9 +20,13 @@ const draft: SavedPlanSummary = {
 };
 
 describe("SavePlanForm", () => {
-  it("saves the plan for the exact inputs on screen", async () => {
+  it("saves the plan for the exact inputs on screen, with the live alerts behind them", async () => {
     api.savePlan.mockResolvedValue({ ...draft, version: 3 });
-    const state = { ...initialAegisState, scenario: { id: "d" } as ScenarioConfig, seed: 7 };
+    const state = {
+      ...initialAegisState, scenario: { id: "d" } as ScenarioConfig, seed: 7,
+      overrides: { closedEdgeIds: [], unavailableShelterIds: [], edgeCapacityFactors: { E1: 0.25, E4: 0.25 } },
+      appliedAlerts: [{ id: "traffic:nh9-bypass", title: "NH-9 Bypass jammed", isDemo: false, appliedAt: "2026-10-24T09:00:00Z" }],
+    };
     render(<SavePlanForm state={state} />);
 
     fireEvent.change(screen.getByLabelText("Plan name"), { target: { value: "Monsoon plan" } });
@@ -32,6 +36,7 @@ describe("SavePlanForm", () => {
     expect(await screen.findByText(/as version 3/)).toBeInTheDocument();
     expect(api.savePlan).toHaveBeenCalledWith({
       name: "Monsoon plan", preparedBy: "A. Planner", note: "", scenarioId: "d", randomSeed: 7, closedEdgeIds: [], unavailableShelterIds: [],
+      edgeCapacityFactors: { E1: 0.25, E4: 0.25 }, alertIds: ["traffic:nh9-bypass"],
     });
   });
 });

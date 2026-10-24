@@ -5,6 +5,7 @@ import { type FormEvent, useCallback, useEffect, useState } from "react";
 
 import { addRiverReading, fetchRiverStatus, type RiverGauge, type RiverStatus, setRiverThresholds } from "@/lib/api/client";
 import type { AegisActions } from "@/lib/state/useAegis";
+import { FlowForecast } from "./FlowForecast";
 
 const STATUS_STYLE: Record<RiverGauge["status"], string> = {
   normal: "bg-green-100 text-green-800",
@@ -77,6 +78,7 @@ function Gauge({ gauge: g, actions, load }: { gauge: RiverGauge; actions: AegisA
           : "No reading yet."}
         {g.warningLevelM != null && g.dangerLevelM != null && ` · warning ${g.warningLevelM} m, danger ${g.dangerLevelM} m`}
       </p>
+      <FlowForecast river={g.river} />
       {g.suggestion && (
         <div role="alert" className="mt-2 rounded border border-amber-200 bg-amber-50 p-2 text-amber-900">
           {g.suggestion.message}{" "}

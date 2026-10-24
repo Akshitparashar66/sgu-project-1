@@ -30,6 +30,8 @@ export function SavePlanForm({ state }: { state: AegisState }) {
       const saved = await savePlan({
         name: name.trim(), preparedBy: preparedBy.trim(), note: note.trim(),
         scenarioId: state.scenario.id, randomSeed: state.seed, ...state.overrides,
+        // Live alerts behind these what-ifs go into the saved plan's fingerprint.
+        alertIds: state.appliedAlerts.map((a) => a.id),
       });
       setMessage({ ok: true, text: `Saved "${saved.name}" as version ${saved.version}. Review and approve it under Reports.` });
     } catch (e) {

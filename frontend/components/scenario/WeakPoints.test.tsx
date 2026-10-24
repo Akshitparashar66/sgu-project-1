@@ -28,7 +28,7 @@ describe("WeakPoints", () => {
     expect(await screen.findByText("+400 unserved")).toBeInTheDocument(); // its faster clearance is not a gain
     expect(screen.getByText("+24.5 min clearance")).toBeInTheDocument();
     expect(screen.getByText("−1 min clearance")).toBeInTheDocument();
-    expect(findWeakPoints).toHaveBeenCalledWith({ scenarioId: "scenario_a_normal", randomSeed: 7, closedEdgeIds: [], unavailableShelterIds: [] });
+    expect(findWeakPoints).toHaveBeenCalledWith({ scenarioId: "scenario_a_normal", randomSeed: 7, closedEdgeIds: [], unavailableShelterIds: [], edgeCapacityFactors: {} });
     fireEvent.click(screen.getByRole("button", { name: "Try losing road E1" }));
     expect(actions.toggleEdge).toHaveBeenCalledWith("E1");
   });

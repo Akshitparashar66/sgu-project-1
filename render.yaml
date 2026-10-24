@@ -1,0 +1,30 @@
+# Render Blueprint for the AEGIS API (the frontend deploys to Vercel from frontend/).
+# Secrets are marked sync: false: Render asks for them when the Blueprint is created,
+# and they are never stored in this repository.
+services:
+  - type: web
+    name: aegis-api
+    runtime: docker
+    dockerfilePath: ./backend/Dockerfile
+    dockerContext: .
+    plan: free
+    healthCheckPath: /api/health
+    envVars:
+      # The Vercel address, e.g. https://aegis.vercel.app (comma-separate several).
+      - key: AEGIS_CORS_ORIGINS
+        sync: false
+      # Optional: a pattern for Vercel preview links, e.g. https://aegis-[a-z0-9-]+\.vercel\.app
+      - key: AEGIS_CORS_ORIGIN_REGEX
+        sync: false
+      - key: AEGIS_LIVE
+        value: "1"
+      - key: TOMTOM_API_KEY
+        sync: false
+      - key: TWILIO_ACCOUNT_SID
+        sync: false
+      - key: TWILIO_AUTH_TOKEN
+        sync: false
+      - key: TWILIO_SMS_FROM
+        sync: false
+      - key: TWILIO_WHATSAPP_FROM
+        sync: false

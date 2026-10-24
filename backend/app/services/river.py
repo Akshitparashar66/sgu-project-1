@@ -57,6 +57,11 @@ def _config() -> list[dict]:
     return json.loads(_CONFIG.read_text(encoding="utf-8"))["gauges"]
 
 
+def gauges() -> list[dict]:
+    """The committed gauge list (ids, rivers, flood scenarios)."""
+    return _config()
+
+
 def _gauge(gauge_id: str) -> dict:
     gauge = next((g for g in _config() if g["id"] == gauge_id), None)
     if gauge is None:
@@ -135,6 +140,19 @@ def add_reading(gauge_id: str, request: ReadingRequest) -> dict:
     _record(state, gauge_id, request.level_m, request.observed_at, "manual")
     _save_state(state)
     return river_status()
+
+
+def record_river_reading(*, gauge_id: str, level_m: float, observed_at: datetime, source: str) -> bool:
+    """A reading from another live source (a CWC flood alert via NDMA).
+    Returns False if this gauge already has a reading from `source` at that time."""
+    _gauge(gauge_id)
+    state = _load_state()
+    at = observed_at.astimezone(timezone.utc).isoformat(timespec="seconds")
+    if any(r["source"] == source and r["observedAt"] == at for r in state.get(gauge_id, {}).get("readings", [])):
+        return False
+    _record(state, gauge_id, level_m, observed_at, source)
+    _save_state(state)
+    return True
 
 
 def set_thresholds(gauge_id: str, request: ThresholdsRequest) -> dict:

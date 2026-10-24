@@ -137,3 +137,15 @@ summary {
   .no-print { display: none !important; }
 }
 
+
+/* Live alerts on the map: a slow pulse, still for people who prefer reduced motion. */
+.aegis-alert-pulse {
+  animation: aegis-alert-pulse 1.6s ease-in-out infinite;
+}
+@keyframes aegis-alert-pulse {
+  0%, 100% { stroke-opacity: 0.85; }
+  50% { stroke-opacity: 0.2; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .aegis-alert-pulse { animation: none; }
+}

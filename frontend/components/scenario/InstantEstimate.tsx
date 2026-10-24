@@ -23,7 +23,7 @@ export function InstantEstimate({ state, scenario }: { state: AegisState; scenar
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const scenarioId = state.scenario?.id;
-  const { closedEdgeIds, unavailableShelterIds } = state.overrides;
+  const { closedEdgeIds, unavailableShelterIds, edgeCapacityFactors } = state.overrides;
   const seed = state.seed;
 
   useEffect(() => {
@@ -32,7 +32,8 @@ export function InstantEstimate({ state, scenario }: { state: AegisState; scenar
     const timer = setTimeout(async () => {
       setLoading(true);
       try {
-        const result = await predictOutcome({ scenarioId, randomSeed: seed, closedEdgeIds, unavailableShelterIds }, controller.signal);
+        const result = await predictOutcome(
+          { scenarioId, randomSeed: seed, closedEdgeIds, unavailableShelterIds, edgeCapacityFactors }, controller.signal);
         setEstimate(result);
         setError(null);
       } catch (e) {
@@ -42,7 +43,7 @@ export function InstantEstimate({ state, scenario }: { state: AegisState; scenar
       }
     }, DEBOUNCE_MS);
     return () => { clearTimeout(timer); controller.abort(); };
-  }, [scenarioId, seed, closedEdgeIds, unavailableShelterIds]);
+  }, [scenarioId, seed, closedEdgeIds, unavailableShelterIds, edgeCapacityFactors]);
 
   const { tickSeconds, maxTicks } = scenario.defaultParams;
   const run = state.run && !isRunStale(state) ? state.run : null;

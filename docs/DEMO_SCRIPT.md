@@ -1,6 +1,6 @@
 # AEGIS Demo Script (PRD §16.1)
 
-Total time budget: ~4 minutes. Rehearse this exact sequence at least twice before
+Total time budget: ~4 minutes (~6 with the live-alerts step). Rehearse this exact sequence at least twice before
 presenting, on the actual venue wifi/laptop. Every number below is what the build actually
 produces with the default seed (42) — if a number on screen differs, trust the screen and
 find out why before going on stage.
@@ -59,7 +59,24 @@ find out why before going on stage.
    our simulator, not real evacuations; the Run button always gives the real numbers."
    **If asked "can it use our data?":** Scenario Lab → **Use your own data** (ward and
    shelter CSVs), and Scenario G shows the same area on all 841 streets.
-8. **Closing line (PRD §16.2):** "We don't wait for disasters to expose evacuation
+8. **Live alerts (about 2 minutes; start it on the Alerts page before step 7 so it has
+   unfolded).** **Alerts → Start flood-day demo.** Point at the sources strip: NDMA
+   "connected", TomTom with the real speeds on NH-9 Bypass and Gaur Cascades Rd right now, and
+   "No data for E5, E6, E7", and the **Hindon flow forecast**: today's flow and the week's
+   likely peak against the river's own 2-, 5- and 20-year flood flows. Say: "These are live:
+   the official national alert feed, real traffic, and the Copernicus flood model's forecast
+   for the Hindon." If asked how good the forecast is: "It sees big river floods days ahead,
+   but it missed July 2023's local flooding, so the district's gauge stays the trigger." The demo then plays a scripted flood day, every alert marked **DEMO**: an IMD
+   heavy-rain warning, the Hindon past warning then danger level, and at about 90 s a jam on
+   NH-9 Bypass (8 km/h against 38). The red banner shows it on every page and the map outlines
+   E1 and E4. Click **Apply: Set E1, E4 to 25% capacity**: the Scenario Lab says "Live
+   conditions applied from demo alert …" and the instant estimate updates. With Scenario D
+   loaded (apply the river alert first), **Optimize**: everyone is still sheltered, in
+   **38.5 min** instead of 37. Say: "Live data never changes a plan by itself: an officer
+   applies it, the simulation tests it, and the saved plan records which alert it came from."
+   If a phone has joined the Twilio WhatsApp sandbox, **Send to phones** on an alert shows
+   the preview and sends it, in English and Hindi. **Stop the demo** afterwards.
+9. **Closing line (PRD §16.2):** "We don't wait for disasters to expose evacuation
    failures. We simulate them before lives are at risk."
 
 ## Fallback
@@ -86,3 +103,7 @@ draws on a dark background.)
 - Don't say Scenario B "leaves people stranded" — it doesn't; it makes the evacuation
   13.5 minutes longer. Scenario D is the one where people are still walking at the limit,
   and C is the one with no shelter place. Scenario C is the one with unserved evacuees.
+- Live alerts: never say the jam, river levels or IMD warning in the demo are real; they are
+  marked DEMO. What is real is the sources strip: the NDMA feed and TomTom speeds. Don't
+  claim TomTom counts people: it measures vehicles, and AEGIS turns its speed into a share
+  of road capacity as a stated assumption.

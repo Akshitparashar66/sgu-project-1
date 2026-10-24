@@ -14,4 +14,5 @@ COPY data data
 WORKDIR /srv/backend
 EXPOSE 8000
 # Imported scenarios and saved plans are planner data: mount volumes there (see docker-compose.yml).
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+# Hosts like Render set PORT; 8000 otherwise.
+CMD ["sh", "-c", "exec uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000}"]

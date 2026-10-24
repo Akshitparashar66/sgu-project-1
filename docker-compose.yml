@@ -1,7 +1,8 @@
 # One command for the whole app, e.g. on a district server:
 #   docker compose up --build
 # then open http://localhost:3000. Planner data (imported scenarios, saved
-# plans and their audit log) lives in named volumes and survives rebuilds.
+# plans and their audit log, river readings, alerts and recipients) lives in
+# named volumes and survives rebuilds.
 services:
   backend:
     build:
@@ -9,6 +10,10 @@ services:
       dockerfile: backend/Dockerfile
     ports:
       - "8000:8000"
+    # API keys (TomTom, Twilio) and AEGIS_LIVE=1, if the file exists. Never committed.
+    env_file:
+      - path: backend/.env.local
+        required: false
     environment:
       # Add the address users open the app at if it isn't localhost:3000.
       AEGIS_CORS_ORIGINS: ${AEGIS_CORS_ORIGINS:-}
@@ -18,6 +23,7 @@ services:
       - imported:/srv/data/imported
       - plans:/srv/data/plans
       - river:/srv/data/river
+      - alerts:/srv/data/alerts
     restart: unless-stopped
 
   frontend:
@@ -36,3 +42,4 @@ volumes:
   imported:
   plans:
   river:
+  alerts:

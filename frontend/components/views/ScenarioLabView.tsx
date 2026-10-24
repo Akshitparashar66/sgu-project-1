@@ -3,6 +3,7 @@
 import { FileCheck2, Loader2, Play, Undo2 } from "lucide-react";
 import { useState } from "react";
 
+import { AppliedAlerts } from "@/components/alerts/AppliedAlerts";
 import { ImportData } from "@/components/scenario/ImportData";
 import { InstantEstimate } from "@/components/scenario/InstantEstimate";
 import { WeakPoints } from "@/components/scenario/WeakPoints";
@@ -19,6 +20,9 @@ interface ScenarioLabViewProps {
   actions: AegisActions;
   onRunComplete: () => void;
 }
+
+// A jammed road keeps this share of its capacity (what a live traffic alert applies).
+const CAPACITY_CHOICES = [1, 0.75, 0.5, 0.25];
 
 // Above this many roads (the detailed network), the table shows a search box and the first matches.
 const ROAD_TABLE_LIMIT = 25;
@@ -39,7 +43,7 @@ export function ScenarioLabView({ state, effectiveScenario: scenario, actions, o
   return (
     <Page
       title="Scenario Lab"
-      intro="Close roads or take shelters offline, then run the simulation to see the effect. Changes apply to a copy of the scenario — the scenario file itself is never modified."
+      intro="Close roads, slow them down or take shelters offline, then run the simulation to see the effect. Changes apply to a copy of the scenario — the scenario file itself is never modified."
       actions={
         <>
           <button
@@ -62,6 +66,8 @@ export function ScenarioLabView({ state, effectiveScenario: scenario, actions, o
         </>
       }
     >
+      <AppliedAlerts state={state} />
+
       <InstantEstimate state={state} scenario={scenario} />
 
       <WeakPoints state={state} actions={actions} />
@@ -85,29 +91,45 @@ export function ScenarioLabView({ state, effectiveScenario: scenario, actions, o
         <table className={tableClass}>
           <thead className={theadClass}>
             <tr>
-              <th scope="col" className="py-2 font-medium">Road</th>
+              <th scope="col" className="py-2 pr-3 font-medium">Road</th>
               <th scope="col" className="py-2 font-medium">Between</th>
-              <th scope="col" className="py-2 text-right font-medium">Length</th>
-              <th scope="col" className="py-2 text-right font-medium">Capacity / tick</th>
-              <th scope="col" className="py-2 text-right font-medium">Hazard</th>
+              <th scope="col" className="py-2 pl-3 text-right font-medium">Length</th>
+              <th scope="col" className="py-2 pl-3 text-right font-medium">Capacity / tick</th>
+              <th scope="col" className="py-2 pl-3 text-right font-medium">Hazard</th>
               <th scope="col" className="py-2 pl-4 font-medium">Status</th>
+              <th scope="col" className="py-2 pl-3 font-medium">Flow</th>
               <th scope="col" className="py-2"><span className="sr-only">Action</span></th>
             </tr>
           </thead>
           <tbody>
             {shownRoads.map((edge) => {
               const closed = edge.status === "closed";
+              const factor = state.overrides.edgeCapacityFactors[edge.id] ?? 1;
               return (
                 <tr key={edge.id} className={rowClass}>
-                  <th scope="row" className="py-2 font-medium text-slate-800">{edge.id}</th>
+                  <th scope="row" className="py-2 pr-3 font-medium text-slate-800">{edge.id}</th>
                   <td className="py-2 text-slate-500">{label(edge.source)} — {label(edge.target)}</td>
-                  <td className="py-2 text-right tabular-nums text-slate-700">{edge.lengthM} m</td>
-                  <td className="py-2 text-right tabular-nums text-slate-700">{edge.capacityPerTick}</td>
-                  <td className="py-2 text-right tabular-nums text-slate-700">{Math.round(edge.hazardRisk * 100)}%</td>
+                  <td className="whitespace-nowrap py-2 pl-3 text-right tabular-nums text-slate-700">{edge.lengthM} m</td>
+                  <td className={`py-2 pl-3 text-right tabular-nums ${factor < 1 ? "font-medium text-amber-700" : "text-slate-700"}`}>
+                    {edge.capacityPerTick}
+                  </td>
+                  <td className="py-2 pl-3 text-right tabular-nums text-slate-700">{Math.round(edge.hazardRisk * 100)}%</td>
                   <td className={`py-2 pl-4 ${closed ? "text-red-600" : "text-slate-700"}`}>
                     {edge.status}
                     {!closed && edge.closesAtTick != null && (
                       <span className="block text-xs text-amber-700">floods at {(edge.closesAtTick * scenario.defaultParams.tickSeconds) / 60} min</span>
+                    )}
+                  </td>
+                  <td className="py-2 pl-3">
+                    {!closed && (
+                      <select
+                        aria-label={`Usable capacity of road ${edge.id}`}
+                        value={factor}
+                        onChange={(e) => actions.setEdgeCapacity(edge.id, Number(e.target.value))}
+                        className="rounded border border-slate-200 px-1 py-0.5 text-xs text-slate-700"
+                      >
+                        {CAPACITY_CHOICES.map((c) => <option key={c} value={c}>{c === 1 ? "Full" : `${c * 100}%`}</option>)}
+                      </select>
                     )}
                   </td>
                   <td className="py-2 text-right">

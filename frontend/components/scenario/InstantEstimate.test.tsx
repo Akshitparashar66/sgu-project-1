@@ -19,7 +19,7 @@ const estimate: OutcomeEstimate = {
     testMetrics: { clearanceMinutes: metric(6.4), unservedShare: metric(20), peakCongestion: metric(0.15) },
   },
 };
-const state = { ...initialAegisState, scenario, overrides: { closedEdgeIds: ["E3"], unavailableShelterIds: [] } };
+const state = { ...initialAegisState, scenario, overrides: { closedEdgeIds: ["E3"], unavailableShelterIds: [], edgeCapacityFactors: {} } };
 
 describe("InstantEstimate", () => {
   beforeEach(() => predictOutcome.mockReset());
@@ -35,7 +35,7 @@ describe("InstantEstimate", () => {
     expect(screen.getByText(/Run the simulation for the real numbers/)).toBeInTheDocument();
     expect(screen.getByText(/Ranges cover 90%/)).toBeInTheDocument();
     expect(predictOutcome).toHaveBeenCalledWith(
-      { scenarioId: "scenario_a", randomSeed: 42, closedEdgeIds: ["E3"], unavailableShelterIds: [] }, expect.any(AbortSignal),
+      { scenarioId: "scenario_a", randomSeed: 42, closedEdgeIds: ["E3"], unavailableShelterIds: [], edgeCapacityFactors: {} }, expect.any(AbortSignal),
     );
   });
 

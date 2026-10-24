@@ -51,7 +51,7 @@ describe("aegisReducer", () => {
     expect(state.plan).toBeNull();
     expect(state.comparison).toBeNull();
     expect(state.selection).toBeNull();
-    expect(state.overrides).toEqual({ closedEdgeIds: [], unavailableShelterIds: [] });
+    expect(state.overrides).toEqual({ closedEdgeIds: [], unavailableShelterIds: [], edgeCapacityFactors: {} });
     expect(state.status).toBe("idle");
     expect(state.scenario).toBe(scenario);
   });
@@ -73,5 +73,26 @@ describe("aegisReducer", () => {
     const state = aegisReducer(loaded(), { type: "failed", message: "Unknown scenario_id 'x'" });
     expect(state.status).toBe("error");
     expect(state.error).toBe("Unknown scenario_id 'x'");
+  });
+
+  it("applies a live alert's road changes to roads the scenario has, and remembers where they came from", () => {
+    const withRoads = aegisReducer(initialAegisState, {
+      type: "scenarioLoaded", scenario: { ...scenario, edges: [{ id: "E1" }, { id: "E4" }] } as unknown as ScenarioConfig,
+    });
+    const alert = { id: "traffic:nh9-bypass", title: "NH-9 Bypass jammed", isDemo: false, appliedAt: "2026-10-24T09:00:00Z" };
+    let state = aegisReducer(withRoads, {
+      type: "applyAlert", alert, conditions: { edgeCapacityFactors: { E1: 0.25, E4: 0.25, E99: 0.5 }, closedEdgeIds: ["E99"] },
+    });
+    expect(state.overrides.edgeCapacityFactors).toEqual({ E1: 0.25, E4: 0.25 });
+    expect(state.overrides.closedEdgeIds).toEqual([]);
+    expect(state.appliedAlerts).toEqual([alert]);
+    expect(runKey(state)).not.toBe(runKey(withRoads));
+
+    state = aegisReducer(state, { type: "applyAlert", alert, conditions: {} });
+    expect(state.appliedAlerts).toHaveLength(1);
+    state = aegisReducer(state, { type: "setEdgeCapacity", edgeId: "E4", factor: 1 });
+    expect(state.overrides.edgeCapacityFactors).toEqual({ E1: 0.25 });
+    state = aegisReducer(state, { type: "clearOverrides" });
+    expect(state.appliedAlerts).toEqual([]);
   });
 });

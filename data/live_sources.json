@@ -1,0 +1,43 @@
+{
+  "note": "What AEGIS watches for live alerts. Keys (TomTom, Twilio) go in backend/.env.local, never here. Network sources run only with AEGIS_LIVE=1.",
+  "ndma": {
+    "feedUrl": "https://sachet.ndma.gov.in/cap_public_website/rss/rss_india.xml",
+    "intervalSeconds": 60,
+    "issuers": ["IMD Lucknow", "Uttar Pradesh SDMA", "UP SDMA", "CWC", "IMD New Delhi", "IMD Delhi"],
+    "watchedPlaces": ["ghaziabad", "hindon", "raj nagar", "loni", "modinagar"],
+    "nearbyPlaces": ["gautam buddha nagar", "noida", "hapur", "meerut", "baghpat", "bulandshahr", "delhi"],
+    "scenarioId": "scenario_d_hindon_flood"
+  },
+  "river": {
+    "intervalSeconds": 15
+  },
+  "glofas": {
+    "intervalSeconds": 10800,
+    "thresholdsFile": "hindon_glofas.json",
+    "lookaheadDays": 7,
+    "scenarioId": "scenario_d_hindon_flood"
+  },
+  "traffic": {
+    "intervalSeconds": 180,
+    "onlyWhileViewedSeconds": 120,
+    "warningBelow": 0.5,
+    "severeBelow": 0.25,
+    "minConfidence": 0.5,
+    "maxSnapMetres": 50,
+    "sections": [
+      {"id": "nh9-bypass", "name": "NH-9 Bypass", "point": [28.70235, 77.41865], "edgeIds": ["E1", "E4"]},
+      {"id": "gaur-cascades", "name": "Gaur Cascades Rd", "point": [28.70236, 77.42344], "edgeIds": ["E2", "E3"]}
+    ],
+    "notCovered": {
+      "edgeIds": ["E5", "E6", "E7"],
+      "reason": "Local lanes TomTom has no traffic data for (checked 2026-10-24: its nearest road was 200–1,000 m away)."
+    }
+  },
+  "demo": {
+    "intervalSeconds": 5,
+    "scenarioId": "scenario_d_hindon_flood",
+    "gaugeId": "hindon",
+    "jamSectionId": "nh9-bypass",
+    "jamSpeedRatio": 0.22
+  }
+}

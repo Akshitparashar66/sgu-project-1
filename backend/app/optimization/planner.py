@@ -3,8 +3,6 @@ from __future__ import annotations
 import time
 import uuid
 
-from pydantic import Field
-
 from app.models.schemas import CamelModel, RunMetrics, RunResult, ScenarioConfig, SimulationParams
 from app.optimization.bounds import clearance_lower_bound
 from app.optimization.search import ITERATIONS, mean_hazard_ticks, optimize_plan, plan_score, with_every_lever
@@ -12,18 +10,15 @@ from app.routing.assignment import assign_shelters_and_routes
 from app.routing.congestion import CongestionModel
 from app.routing.graph import build_graph
 from app.services.robustness import plan_robustness
-from app.services.scenario_overrides import apply_overrides
+from app.services.scenario_overrides import WhatIfOverrides
 from app.simulation.engine import simulate
 
 
-class OptimizationRequest(CamelModel):
-    # CamelModel so the frontend can POST {"scenarioId": "..."} directly.
-    scenario_id: str
-    random_seed: int = 42
+class OptimizationRequest(WhatIfOverrides):
     # Same what-if overrides as RunRequest, so the alternative plan is
     # computed for the scenario the planner is actually looking at.
-    closed_edge_ids: list[str] = Field(default_factory=list)
-    unavailable_shelter_ids: list[str] = Field(default_factory=list)
+    scenario_id: str
+    random_seed: int = 42
 
 
 def generate_alternative_plan(request: OptimizationRequest) -> dict:
@@ -42,7 +37,7 @@ def generate_alternative_plan(request: OptimizationRequest) -> dict:
     if scenario is None:
         return {"feasible": False, "reason": f"Unknown scenario_id '{request.scenario_id}'",
                 "changes": [], "tradeOffs": [], "orders": []}
-    scenario = apply_overrides(scenario, request.closed_edge_ids, request.unavailable_shelter_ids)
+    scenario = request.apply_to(scenario)
 
     graph = build_graph(scenario)
     # Both runs use the requested seed, and RunResult.random_seed reports it

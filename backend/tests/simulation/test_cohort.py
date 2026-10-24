@@ -8,6 +8,7 @@ from app.models.schemas import AgentPlan
 from app.routing.assignment import assign_shelters_and_routes, build_demand_units
 from app.routing.congestion import CongestionModel
 from app.routing.graph import build_graph
+from app.services.scenario_overrides import apply_overrides
 from app.services.scenario_store import list_scenarios
 from app.simulation.cohort import simulate_plans_fast
 from app.simulation.engine import simulate
@@ -105,6 +106,17 @@ def test_staged_departure_waits_at_the_zone_until_its_tick():
 def test_cohort_simulation_matches_the_engine_with_flooding_roads_and_slow_shelter_doors(seed):
     rng = random.Random(100 + seed)
     scenario = _with_floods_and_slow_doors(SCENARIOS[seed % len(SCENARIOS)], rng)
+    plans = _random_plans(scenario, rng)
+    assert _fast_metrics(scenario, plans) == _engine_metrics(scenario, plans)
+
+
+@pytest.mark.parametrize("seed", range(6))
+def test_cohort_simulation_matches_the_engine_with_roads_at_reduced_capacity(seed):
+    """Live traffic arrives as a capacity factor per road (the Scenario Lab what-if)."""
+    rng = random.Random(200 + seed)
+    base = SCENARIOS[seed % len(SCENARIOS)]
+    factors = {e.id: rng.choice([0.25, 0.5, 0.75]) for e in base.edges if rng.random() < 0.4}
+    scenario = apply_overrides(base, edge_capacity_factors=factors)
     plans = _random_plans(scenario, rng)
     assert _fast_metrics(scenario, plans) == _engine_metrics(scenario, plans)
 

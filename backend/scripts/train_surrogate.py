@@ -5,7 +5,8 @@
     python scripts/train_surrogate.py
 
 1. Generates scenarios: Scenario Lab cases (each shipped scenario with
-   random road closures and offline shelters) and perturbed variants (the
+   random road closures, roads at reduced capacity as a live traffic alert
+   applies them, and offline shelters) and perturbed variants (the
    same plus scaled populations, shelter capacities, road capacities,
    walking speed and mobility mix).
 2. Labels each one by simulating its baseline plan with the cohort
@@ -56,6 +57,8 @@ def lab_variant(base: ScenarioConfig, rng: random.Random) -> ScenarioConfig:
     for e in s.edges:
         if rng.random() < close_share:
             e.status = RoadStatus.CLOSED
+        elif rng.random() < close_share:  # a jammed road, as a traffic alert's what-if applies it
+            e.capacity_per_tick = max(1, round(e.capacity_per_tick * rng.choice([0.25, 0.5, 0.75])))
     for sh in s.shelters:
         if rng.random() < 0.12:
             sh.available = False

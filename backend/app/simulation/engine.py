@@ -4,8 +4,6 @@ import time
 import uuid
 from dataclasses import dataclass, field
 
-from pydantic import Field
-
 from app.models.schemas import (
     AgentPlan, AgentResult, AgentStatus, CamelModel, EdgeCongestionResult, RunMetrics,
     RunResult, ScenarioConfig, ShelterResult, SimulationParams,
@@ -13,7 +11,7 @@ from app.models.schemas import (
 from app.routing.assignment import assign_shelters_and_routes
 from app.routing.congestion import CongestionModel
 from app.routing.graph import build_graph
-from app.services.scenario_overrides import apply_overrides
+from app.services.scenario_overrides import WhatIfOverrides
 from app.simulation.dynamics import RoadClosures, other_end
 from app.simulation.protocols import CongestionModelProtocol
 
@@ -280,17 +278,13 @@ def simulate(
     )
 
 
-class RunRequest(CamelModel):
+class RunRequest(WhatIfOverrides):
     # CamelModel (not plain BaseModel) so the frontend can POST
     # {"scenarioId": "...", "planLabel": "baseline"} directly — see master
     # plan §3.1's note on CamelModel and §3.3's "already camelCase" note.
     scenario_id: str
     plan_label: str = "baseline"
     params: SimulationParams | None = None
-    # What-if changes from the Scenario Lab, applied to a copy of the
-    # loaded scenario (see app.services.scenario_overrides).
-    closed_edge_ids: list[str] = Field(default_factory=list)
-    unavailable_shelter_ids: list[str] = Field(default_factory=list)
 
 
 def run_simulation(request: RunRequest) -> RunResult:
@@ -302,7 +296,7 @@ def run_simulation(request: RunRequest) -> RunResult:
     scenario = get_scenario(request.scenario_id)
     if scenario is None:
         raise ValueError(f"Unknown scenario_id '{request.scenario_id}'")
-    scenario = apply_overrides(scenario, request.closed_edge_ids, request.unavailable_shelter_ids)
+    scenario = request.apply_to(scenario)
 
     params = request.params or scenario.default_params
     graph = build_graph(scenario)

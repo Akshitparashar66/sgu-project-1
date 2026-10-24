@@ -4,8 +4,11 @@ import type { FitBoundsOptions } from "leaflet";
 import { type ReactNode, useEffect, useRef, useState } from "react";
 import { MapContainer } from "react-leaflet";
 
+import { useAlerts } from "@/lib/alerts/AlertsContext";
 import type { AgentResult, ScenarioConfig } from "@/lib/schemas/types";
 import { Basemaps } from "./Basemaps";
+import { LiveBadge } from "./LiveBadge";
+import { AlertLayer } from "./layers/AlertLayer";
 import { FitToBounds } from "./FitToBounds";
 import { AgentClusterLayer } from "./layers/AgentClusterLayer";
 import { HazardLayer } from "./layers/HazardLayer";
@@ -51,6 +54,7 @@ export function EvacuationMap({
     ? [[Math.min(...lats), Math.min(...lons)], [Math.max(...lats), Math.max(...lons)]]
     : [[0, 0], [0, 0]];
   const context = { nodeById, selection, onSelect };
+  const { overview } = useAlerts();
 
   const legendRef = useRef<HTMLDivElement>(null);
   const [legendHeight, setLegendHeight] = useState(50);
@@ -70,6 +74,7 @@ export function EvacuationMap({
         <FitToBounds bounds={bounds} options={fit} />
         <Basemaps />
         <HazardLayer hazards={scenario.hazards} />
+        <AlertLayer overview={overview} edges={scenario.edges} hazards={scenario.hazards} nodeById={nodeById} onSelect={onSelect} />
         <RoadLayer edges={scenario.edges} congestionByEdgeId={congestionByEdgeId} {...context} />
         {/* Agent clusters render under shelters/zones, so they read as a halo sized by headcount. */}
         <AgentClusterLayer scenario={scenario} agents={agents} nodeById={nodeById} />
@@ -81,6 +86,7 @@ export function EvacuationMap({
         Roads follow real streets (OpenStreetMap) ·{" "}
         {scenario.synthetic ? "people, shelters and capacities are synthetic" : "people and shelters from uploaded data"}
       </p>
+      <LiveBadge overview={overview} />
       <Legend ref={legendRef} />
     </div>
   );

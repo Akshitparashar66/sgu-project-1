@@ -3,7 +3,9 @@
 import { useCallback, useEffect, useMemo, useReducer, useRef } from "react";
 
 import type { MapSelection } from "@/components/map/layers/types";
-import { compareRuns, fetchScenario, fetchScenarios, generateAlternativePlan, runSimulation } from "@/lib/api/client";
+import {
+  compareRuns, fetchScenario, fetchScenarios, generateAlternativePlan, type LiveAlert, runSimulation,
+} from "@/lib/api/client";
 import { applyOverrides } from "@/lib/scenario/overrides";
 import { aegisReducer, type AegisState, initialAegisState, runKey } from "./aegisReducer";
 
@@ -52,6 +54,22 @@ export function useAegis() {
     } catch (error) {
       dispatch({ type: "failed", message: message(error) });
     }
+  }, [loadScenario]);
+
+  /**
+   * Bring an alert's conditions into the Scenario Lab: open its scenario if it
+   * names one, then add its road closures or reduced capacities. Nothing runs
+   * until the planner presses Run or Optimize.
+   */
+  const applyAlert = useCallback(async (alert: LiveAlert) => {
+    const action = alert.action;
+    if (!action) return;
+    if (action.scenarioId && action.scenarioId !== stateRef.current.scenario?.id) await loadScenario(action.scenarioId);
+    dispatch({
+      type: "applyAlert",
+      alert: { id: alert.id, title: alert.title, isDemo: alert.isDemo, appliedAt: new Date().toISOString() },
+      conditions: { closedEdgeIds: action.closedEdgeIds, edgeCapacityFactors: action.edgeCapacityFactors },
+    });
   }, [loadScenario]);
 
   const runRequest = () => {
@@ -103,11 +121,13 @@ export function useAegis() {
     generatePlan,
     toggleEdge: (edgeId: string) => dispatch({ type: "toggleEdge", edgeId }),
     toggleShelter: (shelterId: string) => dispatch({ type: "toggleShelter", shelterId }),
+    setEdgeCapacity: (edgeId: string, factor: number | null) => dispatch({ type: "setEdgeCapacity", edgeId, factor }),
+    applyAlert,
     clearOverrides: () => dispatch({ type: "clearOverrides" }),
     setSeed: (seed: number) => dispatch({ type: "setSeed", seed }),
     select: (selection: MapSelection) => dispatch({ type: "select", selection }),
     reset: () => dispatch({ type: "reset" }),
-  }), [loadScenario, openScenario, run, generatePlan]);
+  }), [loadScenario, openScenario, run, generatePlan, applyAlert]);
 
   /** The scenario as currently edited — what the map draws and the next run will simulate. */
   const effectiveScenario = useMemo(

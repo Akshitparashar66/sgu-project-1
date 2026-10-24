@@ -1,10 +1,11 @@
 "use client";
 
-import { BarChart3, FileText, FlaskConical, LayoutDashboard, RotateCcw, Settings, ShieldAlert, SplitSquareHorizontal } from "lucide-react";
+import { BarChart3, BellRing, FileText, FlaskConical, LayoutDashboard, RotateCcw, Settings, ShieldAlert, SplitSquareHorizontal } from "lucide-react";
 import type { MouseEvent, ReactNode } from "react";
 
 export const NAV_ITEMS = [
   { id: "overview", label: "Overview", icon: LayoutDashboard },
+  { id: "alerts", label: "Alerts", icon: BellRing },
   { id: "live-simulation", label: "Live Simulation", icon: BarChart3 },
   { id: "scenario-lab", label: "Scenario Lab", icon: FlaskConical },
   { id: "plan-comparison", label: "Plan Comparison", icon: SplitSquareHorizontal },
@@ -22,6 +23,10 @@ interface AppShellProps {
   onReset: () => void;
   /** When given, nav links switch views in place instead of following their #anchor. */
   onNavigate?: (id: NavId) => void;
+  /** Counts shown on nav items (open alerts). */
+  badges?: Partial<Record<NavId, number>>;
+  /** Shown across the top of every page (the live alert banner). */
+  banner?: ReactNode;
   children: ReactNode;
 }
 
@@ -32,7 +37,7 @@ const STATUS_STYLES: Record<SimulationStatus, string> = {
   idle: "bg-slate-200 text-slate-700",
 };
 
-export function AppShell({ activeNavId, scenarioName, simulationStatus, onReset, onNavigate, children }: AppShellProps) {
+export function AppShell({ activeNavId, scenarioName, simulationStatus, onReset, onNavigate, badges = {}, banner, children }: AppShellProps) {
   return (
     <div className="relative flex h-screen overflow-hidden bg-slate-50 text-slate-900">
       <a
@@ -53,6 +58,7 @@ export function AppShell({ activeNavId, scenarioName, simulationStatus, onReset,
           {NAV_ITEMS.map((item) => {
             const Icon = item.icon;
             const isActive = item.id === activeNavId;
+            const badge = badges[item.id] ?? 0;
             return (
               <li key={item.id}>
                 <a
@@ -68,8 +74,20 @@ export function AppShell({ activeNavId, scenarioName, simulationStatus, onReset,
                     isActive ? "bg-blue-50 text-blue-700" : "text-slate-500 hover:bg-slate-100 hover:text-slate-900"
                   }`}
                 >
-                  <Icon size={16} aria-hidden className="shrink-0" />
-                  <span className="sr-only xl:not-sr-only">{item.label}</span>
+                  <span className="relative shrink-0">
+                    <Icon size={16} aria-hidden />
+                    {badge > 0 && (
+                      <span className="absolute -right-2 -top-2 grid h-4 min-w-4 place-items-center rounded-full bg-red-600 px-1 text-[10px] font-semibold text-white xl:hidden">
+                        {badge}
+                      </span>
+                    )}
+                  </span>
+                  <span className="sr-only xl:not-sr-only xl:flex-1">{item.label}</span>
+                  {badge > 0 && (
+                    <span className="sr-only xl:not-sr-only xl:rounded-full xl:bg-red-600 xl:px-1.5 xl:text-[11px] xl:font-semibold xl:text-white">
+                      {badge}<span className="sr-only"> open</span>
+                    </span>
+                  )}
                 </a>
               </li>
             );
@@ -100,6 +118,7 @@ export function AppShell({ activeNavId, scenarioName, simulationStatus, onReset,
             </button>
           </div>
         </header>
+        {banner}
         <main id="main-content" tabIndex={-1} className="min-h-0 flex-1 overflow-hidden focus:outline-none">{children}</main>
       </div>
     </div>

@@ -31,3 +31,6 @@ data/plans/
 
 # river thresholds set in the app and readings received (planner data)
 data/river/
+
+# live alerts, their log, and recipients' phone numbers (planner data)
+data/alerts/

@@ -184,25 +184,27 @@ Each optimization takes about 5 s (14 s on the detailed network).
   people's routes cross a road that floods and how soon, and how late or slow the shelter
   doors are. The assignment is computed before any simulation, and takes a few milliseconds.
 - **Training data:** 8,000 scenarios generated from the seven shipped ones. Half are Scenario
-  Lab-style (random road closures and offline shelters). Half are also perturbed
+  Lab-style (random road closures, roads left at 25–75% of their capacity as a traffic alert
+  applies them, and offline shelters). Half are also perturbed
   (populations ×0.6–1.5, shelter capacities ×0.5–1.3, road capacities ×0.7–1.3, walking speed
   ×0.8–1.2, 0–50% slow walkers; for 30% a time limit of 30–120 min, for 30% roads flooding
   mid-run, and for 20% of shelters a late opening or a slow door). Each is labeled by
   simulating it. 20% is held out for testing.
 - **Ranges:** two smaller models estimate the 10th and 90th percentile of each output, so every
-  estimate carries its own range. In testing the true value fell inside it 80–85% of the time.
+  estimate carries its own range. In testing the true value fell inside it 79–89% of the time.
   Unserved ranges can be wide (e.g. 0–200 when the estimate is 0), because unserved counts jump
   when a shelter fills.
 - **Measured error on the held-out set:**
 
   | Target | All test cases: mean error / 90% within | Scenario Lab-style cases: mean / 90% within | R² | Inside own range |
   |---|---|---|---|---|
-  | Clearance time | 1.9 min / ±3.6 min | 0.5 min / ±1.2 min | 0.94 | 85% |
-  | Unserved | 25 people / ±68 | 5 people / ±12 | 0.98 | 83% |
-  | Peak congestion | 0.06 / ±0.14 | 0.03 / ±0.08 | 0.98 | 80% |
+  | Clearance time | 1.9 min / ±3.4 min | 0.5 min / ±1.2 min | 0.94 | 79% |
+  | Unserved | 27 people / ±70 | 6 people / ±13 | 0.98 | 89% |
+  | Peak congestion | 0.21 / ±0.55 | 0.17 / ±0.39 | 0.96 | 81% |
 
-  Errors are larger than the previous model's because the cases are harder: flooding roads,
-  slow doors and the 841-road network.
+  Peak congestion is less precise than before (it was ±0.08 on Scenario Lab-style cases)
+  because a jammed road can now push the peak to 10× or more; clearance and unserved
+  estimates are as accurate as before.
 - **What it is not:** it learns this simulator, not real evacuations, so its error is
   measured against the simulation only. It estimates the baseline plan, not the optimized
   one. Estimates never feed into reports or comparisons; the Run button gives the real
@@ -245,9 +247,12 @@ loop is O(agents × ticks), so a materially larger city or population would need
 - `data/river_gauges.json` lists the Hindon gauge with **empty** warning and danger levels:
   they must come from the district or the Central Water Commission, and AEGIS never guesses
   them. Until they're set, readings are recorded but not classified.
-- Readings are typed in, or read from `AEGIS_RIVER_FEED_URL` (any JSON feed of
-  `{gaugeId, levelM, observedAt}`). No public CWC API is assumed. At warning level or above the
-  app suggests opening the flood scenario; it never changes a plan by itself.
+- Readings are typed in, read from `AEGIS_RIVER_FEED_URL` (any JSON feed of
+  `{gaugeId, levelM, observedAt}`), or taken from CWC flood bulletins on NDMA's feed when one
+  names the gauge's river ("flowing at a level of 205.10 m"). No public CWC API is assumed.
+  CWC's own warning and danger levels in a bulletin are shown, not adopted: the thresholds
+  AEGIS classifies against are still only the district's. At warning level or above the app
+  raises an alert and suggests opening the flood scenario; it never changes a plan by itself.
 
 ## Printed orders
 
@@ -255,9 +260,65 @@ loop is O(agents × ticks), so a materially larger city or population would need
   stay as they are in the data. The translations were written for this prototype and should
   be checked by the district before any use.
 
+## Live data and alerts
+
+- **Off unless `AEGIS_LIVE=1`.** Then a background thread reads NDMA every 60 s and TomTom
+  every 3 min, the latter only while someone has had the app open in the last 2 min (the free
+  tier allows 2,500 calls a day; this uses about 960). A source that fails backs off 1, 2,
+  then 5 min and shows its error; the others carry on.
+- **NDMA (SACHET):** the national CAP feed, filtered to issuers that cover Ghaziabad (IMD
+  Lucknow, UP SDMA, CWC, IMD New Delhi), then to alerts whose headline, description or area
+  names Ghaziabad, the Hindon, Raj Nagar, Loni or Modinagar. Alerts naming only a
+  neighbouring district (Gautam Buddha Nagar, Noida, Hapur, Meerut, Baghpat, Bulandshahr,
+  Delhi) are shown as information, without a banner. This is text matching: an alert that
+  covers Ghaziabad without naming it is missed. CAP severity maps Minor → info, Moderate →
+  warning, Severe → severe, Extreme → extreme; each alert ends at its CAP expiry time.
+- **Hindon flow forecast (GloFAS):** river discharge for the ~5 km GloFAS cell at 28.675 N,
+  77.375 E, from Open-Meteo's free Flood API, every 3 hours. That cell is the Hindon's main
+  channel beside Raj Nagar Extension (on 2026-10-24 the cells along 77.325–77.375 E carried
+  12–16 m³/s, growing downstream; their neighbours under 1). Flood flows follow GloFAS's own
+  practice: 2-, 5- and 20-year return periods (232, 457 and 750 m³/s), from a Gumbel fit to
+  the cell's annual maxima over 1997–2025 (29 complete years), computed by
+  `data/build_glofas_thresholds.py` into `data/hindon_glofas.json`. The likely peak over the
+  next 7 days (ensemble median) above a return-period flow raises a warning, severe or extreme
+  alert; if only the wettest forecast (ensemble maximum) crosses, it is information only.
+  **Known miss:** in July 2023 the Hindon flooded parts of Noida and Ghaziabad, yet this
+  cell's highest flow that year was 105 m³/s, below even the 2-year flow; most likely local
+  rain and Yamuna backwater, which a 5 km river model does not capture. So this is an early
+  hint of a big river flood, not a trigger that catches every flood, and it never changes the
+  district's gauge thresholds.
+- **TomTom traffic:** current and free-flow speed at one point per covered road section.
+  Checked on 2026-10-24, it covers NH-9 Bypass (E1 and E4, one section) and Gaur Cascades Rd
+  (E2 and E3, one section); E5, E6 and E7 are local lanes it does not cover (its nearest
+  road was 200–1,000 m away), so they get no traffic data. A reading is ignored if TomTom's
+  confidence is below 0.5 or the road it returns is more than 50 m from the point asked.
+- **Speed as capacity, an assumption.** TomTom measures vehicles. A road at a share of its
+  free-flow speed below 0.5 (warning) or 0.25 (severe) is offered as that share of its
+  capacity for people on foot, to the nearest quarter and never below 25%: a jammed carriageway
+  still leaves verges and footpaths, and crowds of vehicles slow people crossing and walking
+  beside them. No study links the two; treat the applied capacity as a planning what-if.
+- **In the simulation** a capacity share scales the road's `capacity_per_tick`
+  (`max(1, round(cap × share))`, as the robustness variations do), so the engine, the group
+  simulator, the optimizer, the lower bound and the estimate all see it. In Scenario A a jam
+  on E4 raises peak congestion from 2.3× to 9.4× without changing the clearance time (the
+  riverside zone's long walk still sets it); a jam on E1, the first road of that walk, delays
+  it. In Scenario D with NH-9 Bypass (E1 and E4) at 25%, the optimized plan still shelters
+  everyone, in 38.5 min instead of 37.
+- **Nothing is automatic.** Applying an alert adds its changes to the Scenario Lab; plans
+  change only when someone runs or optimizes. Messages go out when a person presses Send,
+  unless auto-send is switched on for a severity (off by default; who switched it is
+  logged). Demo alerts are never sent automatically and every message from one says so.
+- **Messages:** Twilio, English then Hindi. The Hindi wording for AEGIS's own alerts was
+  written for this prototype; NDMA alerts use the issuer's own Hindi text when the CAP file
+  has it. On a Twilio trial, WhatsApp reaches only phones that joined the sandbox and SMS only
+  verified numbers; SMS to Indian numbers may be filtered without DLT registration.
+- **Stored:** alerts, their log, settings and recipients' phone numbers in `data/alerts/`
+  (git-ignored, outside Docker images). Numbers are masked everywhere they are shown.
+
 ## Explicitly out of scope for this prototype (PRD §1.4)
 
-Real-world emergency instructions, validated behavioral predictions, live
-satellite/emergency feeds and building-interior modeling: none of these exist here, by
-design. The one trained model estimates this simulator's output; it predicts nothing about
+Real-world emergency instructions, validated behavioral predictions, satellite feeds and
+building-interior modeling: none of these exist here, by design. The live sources above
+(public NDMA alerts, river readings, TomTom traffic) inform what-ifs; AEGIS never issues
+evacuation instructions from them. The one trained model estimates this simulator's output; it predicts nothing about
 real people.

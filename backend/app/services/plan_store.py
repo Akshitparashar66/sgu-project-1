@@ -10,6 +10,7 @@ from pathlib import Path
 from pydantic import Field
 
 from app.models.schemas import CamelModel
+from app.services.scenario_overrides import WhatIfOverrides
 
 _DEFAULT_PLANS_DIR = Path(__file__).resolve().parents[3] / "data" / "plans"  # git-ignored
 
@@ -19,14 +20,15 @@ def plans_dir() -> Path:
     return Path(override) if override else _DEFAULT_PLANS_DIR
 
 
-class SavePlanRequest(CamelModel):
+class SavePlanRequest(WhatIfOverrides):
     name: str = Field(min_length=1, max_length=80)
     prepared_by: str = Field(min_length=1, max_length=80)
     note: str = Field(default="", max_length=500)
     scenario_id: str
     random_seed: int = 42
-    closed_edge_ids: list[str] = Field(default_factory=list)
-    unavailable_shelter_ids: list[str] = Field(default_factory=list)
+    # Live alerts whose conditions were applied before saving, so the
+    # approval trail shows what live data the plan was based on.
+    alert_ids: list[str] = Field(default_factory=list, max_length=50)
 
 
 class ApproveRequest(CamelModel):
@@ -50,10 +52,13 @@ def _now() -> str:
 # deliberately left out, so approving never changes the fingerprint.
 _CONTENT_KEYS = ("name", "version", "savedAt", "preparedBy", "note", "scenarioId", "scenarioName", "randomSeed",
                  "closedEdgeIds", "unavailableShelterIds", "feasible", "summary", "orders", "interventions", "tradeOffs")
+# Added later and only stored when used, so plans saved before them keep their fingerprint.
+_OPTIONAL_CONTENT_KEYS = ("edgeCapacityFactors", "alertIds")
 
 
 def content_hash(record: dict) -> str:
     content = {k: record.get(k) for k in _CONTENT_KEYS}
+    content.update({k: record[k] for k in _OPTIONAL_CONTENT_KEYS if k in record})
     return hashlib.sha256(json.dumps(content, sort_keys=True, ensure_ascii=False).encode()).hexdigest()
 
 
@@ -89,7 +94,8 @@ def save_plan(request: SavePlanRequest, scenario) -> dict:
 
     plan = generate_alternative_plan(OptimizationRequest(
         scenario_id=request.scenario_id, random_seed=request.random_seed,
-        closed_edge_ids=request.closed_edge_ids, unavailable_shelter_ids=request.unavailable_shelter_ids))
+        closed_edge_ids=request.closed_edge_ids, unavailable_shelter_ids=request.unavailable_shelter_ids,
+        edge_capacity_factors=request.edge_capacity_factors))
     tick_seconds = scenario.default_params.tick_seconds
     directory = plans_dir()
     directory.mkdir(parents=True, exist_ok=True)
@@ -107,6 +113,10 @@ def save_plan(request: SavePlanRequest, scenario) -> dict:
         "orders": plan.get("orders", []), "interventions": plan.get("interventions"), "tradeOffs": plan.get("tradeOffs", []),
         "approvals": [],
     }
+    if request.edge_capacity_factors:
+        record["edgeCapacityFactors"] = dict(sorted(request.edge_capacity_factors.items()))
+    if request.alert_ids:
+        record["alertIds"] = sorted(set(request.alert_ids))
     record["contentHash"] = content_hash(record)
     _path(record["id"]).write_text(json.dumps(record, ensure_ascii=False, indent=2), encoding="utf-8")
     _audit({"event": "saved", "planId": record["id"], "name": record["name"], "version": version,

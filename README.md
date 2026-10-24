@@ -31,9 +31,34 @@ npm run dev  # http://localhost:3000
 ```bash
 docker compose up --build   # http://localhost:3000
 ```
-Imported scenarios, saved plans and river readings live in Docker volumes. Set
+Imported scenarios, saved plans, river readings and alerts live in Docker volumes. Set
 `AEGIS_API_URL` if the browser reaches the API somewhere other than `localhost:8000`,
 `AEGIS_CORS_ORIGINS` for other front-end addresses, and optionally `AEGIS_RIVER_FEED_URL`.
+
+**Deploy: API on Render, frontend on Vercel.**
+1. *Render:* New → Blueprint → this repository. `render.yaml` builds `backend/Dockerfile`
+   (it listens on Render's `PORT`). Enter the keys it asks for; set `AEGIS_CORS_ORIGINS` to the
+   Vercel address, and optionally `AEGIS_CORS_ORIGIN_REGEX` for preview links.
+2. *Vercel:* New Project → this repository, **Root Directory `frontend`**, and the environment
+   variable `NEXT_PUBLIC_API_BASE_URL` = the Render address (e.g. `https://aegis-api.onrender.com`).
+   It is read at build time: redeploy after changing it.
+3. On Render's free plan the service sleeps when idle (the first request then takes up to about
+   a minute, and live checks pause), and its disk is reset on every deploy or restart: saved
+   plans, imported scenarios, river readings, alerts and recipients do not persist. For anything
+   real, use a paid instance with a persistent disk.
+
+**Live data and alerts (optional).** Put the keys in `backend/.env.local`, which git and
+Docker builds ignore; the backend reads it at startup and Docker Compose passes it in:
+```bash
+AEGIS_LIVE=1                          # check NDMA alerts and TomTom traffic in the background
+TOMTOM_API_KEY=...                    # developer.tomtom.com, "Traffic API" product only
+TWILIO_ACCOUNT_SID=...                # for sending alerts by WhatsApp / SMS
+TWILIO_AUTH_TOKEN=...
+TWILIO_WHATSAPP_FROM=+1...            # your WhatsApp sandbox number (Twilio console > Try WhatsApp)
+TWILIO_SMS_FROM=                      # a Twilio number, if you have one
+```
+Without them the app works as before; the Alerts page says which sources are off, and the
+flood-day demo still runs (no keys, no network).
 
 **Instant-estimate model:** the trained model ships in `backend/app/ml/surrogate_model.json`,
 so nothing extra is needed to use it. To retrain it after changing the engine (a test fails
@@ -63,8 +88,9 @@ cd frontend && npm test             # vitest: formatting, replay math, component
   (a documented bottleneck model). No shelter ever exceeds capacity. Roads can flood partway
   through a run (people in line re-route, or are cut off), and shelters can open late or
   register arrivals at a limited rate (people wait at the door).
-- **A what-if lab.** Close any road or take any shelter offline (on the map or in the
-  Scenario Lab) and re-run. Changes apply to a copy; scenario files are never modified.
+- **A what-if lab.** Close any road, leave it a share of its capacity (as a traffic jam
+  does), or take any shelter offline (on the map or in the Scenario Lab) and re-run. Changes
+  apply to a copy; scenario files are never modified.
 - **A search-based plan optimizer.** Simulated annealing decides, for each group of evacuees,
   which shelter to use, which of up to three routes to walk, and when to leave (staged waves
   every 5 minutes, up to +30). It can also open standby shelters and post marshal teams on
@@ -92,7 +118,8 @@ cd frontend && npm test             # vitest: formatting, replay math, component
 - **Instant estimates (machine learning).** While you close roads or take shelters offline
   in the Scenario Lab, a gradient-boosted tree model estimates clearance time, unserved count
   and peak congestion in about 20 ms, before anything is run. It was trained on 6,400
-  simulated what-ifs (including flooding roads, slow shelter doors and the detailed network),
+  simulated what-ifs (including flooding roads, jammed roads, slow shelter doors and the
+  detailed network),
   and each estimate carries its own 10th–90th percentile range. On Scenario Lab-style cases
   90% of clearance estimates are within ±1.2 min. After a run, the real numbers appear next
   to it. If the simulation code changes, the card warns that the model needs retraining.
@@ -101,6 +128,18 @@ cd frontend && npm test             # vitest: formatting, replay math, component
   saved as a new scenario in `data/imported/`, which git ignores.
 - **River level.** Record a Hindon gauge reading (or connect a feed); against the district's
   own warning and danger levels, which AEGIS never guesses, it suggests the flood scenario.
+- **Live alerts.** With `AEGIS_LIVE=1`, AEGIS reads official warnings from NDMA's SACHET
+  feed (IMD, UP SDMA, CWC; Ghaziabad and the Hindon, with nearby districts as information),
+  river levels (typed in, a feed, or CWC flood bulletins), a 7-day Hindon flow forecast from
+  GloFAS against the river's own 2-, 5- and 20-year flood flows, and live traffic from TomTom on
+  the roads it covers. They become alerts: a banner across every page, an Alerts page with
+  each source's state, a pulsing outline on jammed roads and the flood area on the map. One
+  click applies an alert's conditions in the Scenario Lab (open the flood scenario, close a
+  road, or set a jammed road to a share of its capacity); nothing changes a plan until it's
+  run, and a plan saved afterwards records which alerts it was based on. Alerts can be
+  acknowledged (with a name, logged) and sent to officials by WhatsApp or SMS in English
+  and Hindi, after a preview of who gets what. A scripted flood-day demo, marked DEMO
+  throughout, rehearses all of it without keys or network.
 - **Seven evacuation-on-foot scenarios in Raj Nagar Extension, Ghaziabad** (synthetic people,
   real streets): normal conditions (A), a closed critical road (B), a shelter-capacity
   shortage (C), a Hindon river flood with a road flooding mid-run and a late-opening shelter
@@ -124,8 +163,12 @@ cd frontend && npm test             # vitest: formatting, replay math, component
   The lower bound shows how far from the best possible it can be at most.
 - **Not a secured multi-user system.** Saved plans and approvals record names as typed: there
   are no logins yet.
-- **Not connected to a live feed by default.** River readings are typed in unless a feed is
-  configured. Scenario data is synthetic: roads follow real Raj Nagar Extension streets
+- **Not live unless switched on, and not complete when it is.** Live sources run only with
+  `AEGIS_LIVE=1`. The GloFAS flow forecast is a model for a ~5 km area, not a gauge, and it
+  missed the July 2023 Hindon flood. TomTom covers 4 of the 7 roads (NH-9 Bypass, Gaur Cascades Rd), measures
+  vehicles rather than people on foot, and its speeds are applied as a share of capacity, an
+  assumption. NDMA alerts are matched to the area by place names in their text. Scenario
+  data is synthetic: roads follow real Raj Nagar Extension streets
   (NH-9 Bypass, Gaur Cascades Rd, Anandibai Joshi Rd and local lanes, from OpenStreetMap)
   with their real lengths, but populations, shelters and capacities are invented. Scenarios
   A–F use a 7-road subset of the area's streets; G uses all of them.
@@ -146,15 +189,19 @@ backend/
   app/services/                scenario loading and CSV import, what-if overrides, validation,
                                run comparison, robustness ranges, weak points, saved plans, river level
   scripts/train_surrogate.py   generates simulated what-ifs and trains the estimate model
+  app/live/                    live sources (NDMA, river, TomTom, demo), alert store, poller, WhatsApp/SMS
   app/api/                     FastAPI routes and structured errors
   tests/                       unit tests per module + tests/acceptance (end-to-end via the API)
 frontend/
   components/views/            Overview, Live Simulation, Scenario Lab, Plan Comparison, Reports, Settings
   components/map/              Leaflet map, one file per layer, canvas layer for the replay
+  components/alerts/           alert banner, alert cards, sources, recipients, sending
   lib/                         API client, state, replay math, findings, formatting
 data/scenarios/                the seven scenarios (generated — edit data/build_scenarios.py)
 data/network/                  the 7-road and the detailed (841-road) Raj Nagar Extension networks
 data/river_gauges.json         river gauges; warning/danger levels left for the district to set
+data/live_sources.json         what live data watches: NDMA issuers and places, TomTom road sections
+data/hindon_glofas.json        Hindon flood flows from GloFAS history (python data/build_glofas_thresholds.py)
 docker-compose.yml             backend + frontend, with volumes for planner data
 .github/workflows/ci.yml       tests, lint, type check and Docker build on every push
 docs/                          ASSUMPTIONS.md, DEMO_SCRIPT.md, and the implementation plans
@@ -171,7 +218,7 @@ The full shared API/data contracts and the workstream plans this was built from 
 | GET | `/api/scenarios`, `/api/scenarios/{id}` | list / load scenarios |
 | POST | `/api/scenarios/validate` | check a scenario file; field-level errors |
 | POST | `/api/scenarios/import` | build a scenario from uploaded zone/shelter CSVs on an existing street network |
-| POST | `/api/simulations/run` | run a scenario (optional `closedEdgeIds`, `unavailableShelterIds`, `params`) |
+| POST | `/api/simulations/run` | run a scenario (optional `closedEdgeIds`, `unavailableShelterIds`, `edgeCapacityFactors`, `params`) |
 | POST | `/api/optimization/plan` | baseline vs optimized plan: verdict, trade-offs, evacuation orders, robustness ranges |
 | POST | `/api/simulations/compare` | metric-by-metric comparison of two runs |
 | POST | `/api/predict` | instant estimate for a scenario plus what-if changes, with its own range |
@@ -181,5 +228,12 @@ The full shared API/data contracts and the workstream plans this was built from 
 | GET | `/api/plans/audit` | every save and approval, newest first |
 | GET | `/api/river` | river gauges: latest level, status, flood-scenario suggestion |
 | POST | `/api/river/{id}/reading`, `/api/river/{id}/thresholds` | record a level / set the district's levels |
+| GET | `/api/alerts` | every alert, each live source's state, messaging and auto-send settings |
+| POST | `/api/alerts/demo/start`, `/api/alerts/demo/stop` | the scripted flood-day demo |
+| POST | `/api/alerts/{id}/acknowledge` | record who acknowledged an alert |
+| GET / POST | `/api/alerts/{id}/send-preview`, `/api/alerts/{id}/send` | who would get it / send by WhatsApp or SMS |
+| GET / POST / DELETE | `/api/alerts/recipients` | phone recipients (shown masked) |
+| PUT | `/api/alerts/settings` | auto-send per severity (off by default) |
+| GET | `/api/alerts/log` | every alert raised, cleared, acknowledged and sent |
 
 Every error returns `{errorCode, message, field}` — never a bare stack trace.

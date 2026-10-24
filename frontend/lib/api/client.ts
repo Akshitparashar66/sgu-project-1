@@ -55,6 +55,7 @@ export interface ScenarioSummary {
 export interface ScenarioOverrides {
   closedEdgeIds?: string[];
   unavailableShelterIds?: string[];
+  edgeCapacityFactors?: Record<string, number>;
 }
 
 export const fetchHealth = () => apiFetch<{ status: string; version: string }>("/api/health");
@@ -266,7 +267,7 @@ export interface AuditEvent {
   contentHash: string;
 }
 
-export const savePlan = (request: { name: string; preparedBy: string; note?: string; scenarioId: string; randomSeed?: number } & ScenarioOverrides) =>
+export const savePlan = (request: { name: string; preparedBy: string; note?: string; scenarioId: string; randomSeed?: number; alertIds?: string[] } & ScenarioOverrides) =>
   apiFetch<SavedPlanSummary>("/api/plans", { method: "POST", body: JSON.stringify(request) });
 
 export const listSavedPlans = () => apiFetch<SavedPlanSummary[]>("/api/plans");
@@ -312,3 +313,152 @@ export const setRiverThresholds = (gaugeId: string, warningLevelM: number, dange
     method: "POST", body: JSON.stringify({ warningLevelM, dangerLevelM }),
   });
 
+
+export type AlertSeverity = "info" | "warning" | "severe" | "extreme";
+
+/** What applying an alert does: open a scenario, and/or add road closures or reduced capacities. */
+export interface AlertAction {
+  label: string;
+  scenarioId?: string;
+  closedEdgeIds?: string[];
+  edgeCapacityFactors?: Record<string, number>;
+}
+
+export interface AlertDelivery {
+  recipientId: string;
+  name: string;
+  phone: string;
+  channel: "sms" | "whatsapp";
+  status: "sent" | "failed";
+  sid?: string;
+  error?: string;
+  by: string;
+  at: string;
+}
+
+export interface LiveAlert {
+  id: string;
+  source: "ndma" | "river" | "glofas" | "traffic" | "demo";
+  severity: AlertSeverity;
+  title: string;
+  titleHi: string | null;
+  detail: string;
+  area: string;
+  observedAt: string;
+  raisedAt: string;
+  expiresAt: string | null;
+  status: "active" | "acknowledged" | "expired";
+  clearedReason: string | null;
+  acknowledgement: { by: string; note: string; at: string } | null;
+  link: string | null;
+  isDemo: boolean;
+  edgeIds?: string[];
+  /** River alerts: the map highlights the scenario's flood hazard area. */
+  marksHazard?: boolean;
+  action: AlertAction | null;
+  deliveries: AlertDelivery[];
+}
+
+export interface TrafficReading {
+  sectionId: string;
+  name: string;
+  edgeIds: string[];
+  currentSpeed: number;
+  freeFlowSpeed: number;
+  ratio: number;
+  closed: boolean;
+  usable: boolean;
+  observedAt: string;
+}
+
+/** GloFAS river discharge for the ~5 km cell beside the area: a model forecast, not a gauge. */
+export interface FlowForecast {
+  river: string;
+  todayM3s: number;
+  /** Likely peak over the next days (ensemble median), and the wettest forecast (ensemble maximum). */
+  peakM3s: number;
+  peakDate: string;
+  highM3s: number;
+  highDate: string;
+  level: "normal" | "warning" | "severe" | "extreme";
+  thresholdsM3s: { warning: number; severe: number; extreme: number };
+  returnPeriodYears: { warning: number; severe: number; extreme: number };
+  lookaheadDays: number;
+  observedAt: string;
+}
+
+export interface LiveSource {
+  label: string;
+  state: "off" | "waiting" | "connected" | "unavailable" | "not configured" | "running" | "stopped";
+  reason?: string;
+  lastCheckAt?: string;
+  lastSuccessAt?: string;
+  lastError?: string | null;
+  readings?: TrafficReading[];
+  forecast?: FlowForecast;
+  startedAt?: string | null;
+}
+
+export interface AlertsOverview {
+  alerts: LiveAlert[];
+  sources: Record<"ndma" | "river" | "glofas" | "traffic" | "demo", LiveSource>;
+  demo: { running: boolean; startedAt: string | null };
+  liveEnabled: boolean;
+  messaging: { sms: boolean; whatsapp: boolean };
+  settings: { autoSend: Record<Exclude<AlertSeverity, "info">, boolean>; changedBy: string | null; changedAt: string | null };
+  traffic: { sections: { id: string; name: string; edgeIds: string[] }[]; notCovered: { edgeIds: string[]; reason: string } };
+  serverTime: string;
+}
+
+export interface Recipient {
+  id: string;
+  name: string;
+  role: string;
+  /** Masked: "+91 98•••••210". */
+  phone: string;
+  channels: ("sms" | "whatsapp")[];
+  minSeverity: AlertSeverity;
+}
+
+export interface SendPreview {
+  message: string;
+  configured: { sms: boolean; whatsapp: boolean };
+  recipients: { recipientId: string; name: string; role: string; phone: string; channel: "sms" | "whatsapp"; send: boolean; reason: string | null }[];
+}
+
+export interface AlertLogEvent {
+  at: string;
+  event: string;
+  alertId?: string;
+  by?: string;
+  [key: string]: unknown;
+}
+
+const alertPath = (alertId: string) => `/api/alerts/${encodeURIComponent(alertId)}`;
+
+export const fetchAlerts = () => apiFetch<AlertsOverview>("/api/alerts");
+
+export const startDemo = () => apiFetch<AlertsOverview>("/api/alerts/demo/start", { method: "POST" });
+
+export const stopDemo = () => apiFetch<AlertsOverview>("/api/alerts/demo/stop", { method: "POST" });
+
+export const acknowledgeAlert = (alertId: string, by: string, note = "") =>
+  apiFetch<LiveAlert>(`${alertPath(alertId)}/acknowledge`, { method: "POST", body: JSON.stringify({ by, note }) });
+
+export const fetchSendPreview = (alertId: string) => apiFetch<SendPreview>(`${alertPath(alertId)}/send-preview`);
+
+export const sendAlert = (alertId: string, by: string) =>
+  apiFetch<{ deliveries: AlertDelivery[]; alert: LiveAlert }>(`${alertPath(alertId)}/send`, { method: "POST", body: JSON.stringify({ by }) });
+
+export const fetchAlertLog = () => apiFetch<AlertLogEvent[]>("/api/alerts/log");
+
+export const fetchRecipients = () => apiFetch<Recipient[]>("/api/alerts/recipients");
+
+export const addRecipient = (recipient: Omit<Recipient, "id">) =>
+  apiFetch<Recipient>("/api/alerts/recipients", { method: "POST", body: JSON.stringify(recipient) });
+
+export const removeRecipient = (recipientId: string) =>
+  apiFetch<{ removed: string }>(`/api/alerts/recipients/${encodeURIComponent(recipientId)}`, { method: "DELETE" });
+
+export const updateAlertSettings = (autoSend: Partial<Record<AlertSeverity, boolean>>, by: string) =>
+  apiFetch<AlertsOverview["settings"]>("/api/alerts/settings", { method: "PUT", body: JSON.stringify({ autoSend, by }) });

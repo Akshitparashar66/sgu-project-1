@@ -56,3 +56,45 @@ def test_optimizer_honours_the_same_overrides():
 
     for run_key in ("baselineRun", "alternativeRun"):
         assert all("E3" not in a["routeEdgeIds"] for a in result[run_key]["agents"])
+
+
+def test_a_road_capacity_factor_scales_that_road_on_a_copy():
+    scenario = get_scenario("scenario_a_normal")
+    e4 = next(e for e in scenario.edges if e.id == "E4")
+
+    overridden = apply_overrides(scenario, edge_capacity_factors={"E4": 0.5, "E2": 0.01})
+
+    assert next(e for e in overridden.edges if e.id == "E4").capacity_per_tick == round(e4.capacity_per_tick * 0.5)
+    assert next(e for e in overridden.edges if e.id == "E2").capacity_per_tick >= 1  # never zero: use closing for that
+    assert e4.capacity_per_tick == 234  # the loaded scenario is untouched
+    with pytest.raises(InvalidOverrideError) as exc_info:
+        apply_overrides(scenario, edge_capacity_factors={"E99": 0.5})
+    assert exc_info.value.field == "edgeCapacityFactors"
+
+
+def test_a_busier_bottleneck_slows_the_run_and_the_optimizer_sees_it():
+    base = run_simulation(RunRequest(scenario_id="scenario_a_normal"))
+    queued = run_simulation(RunRequest(scenario_id="scenario_a_normal", edge_capacity_factors={"E4": 0.25}))
+    slowed = run_simulation(RunRequest(scenario_id="scenario_a_normal", edge_capacity_factors={"E1": 0.25}))
+
+    # E4's queue grows fourfold but the riverside zone's long walk still sets the clearance time;
+    # a jam on E1, that walk's first road, delays it.
+    assert queued.metrics.max_congestion_ratio > 3 * base.metrics.max_congestion_ratio
+    assert queued.metrics.completion_tick == base.metrics.completion_tick
+    assert slowed.metrics.completion_tick > base.metrics.completion_tick
+
+    result = generate_alternative_plan(OptimizationRequest(scenario_id="scenario_a_normal", edge_capacity_factors={"E1": 0.25}))
+    assert result["baselineRun"]["metrics"]["completionTick"] == slowed.metrics.completion_tick
+
+
+def test_capacity_factors_outside_0_to_1_are_rejected():
+    from fastapi.testclient import TestClient
+
+    from app.main import app
+
+    client = TestClient(app)
+    for factor in (0, 1.5):
+        response = client.post("/api/predict", json={"scenarioId": "scenario_a_normal", "edgeCapacityFactors": {"E4": factor}})
+        assert response.status_code == 422
+    ok = client.post("/api/predict", json={"scenarioId": "scenario_a_normal", "edgeCapacityFactors": {"E4": 0.5}})
+    assert ok.status_code == 200

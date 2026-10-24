@@ -32,6 +32,7 @@ export function ReportsView({ state, effectiveScenario: scenario }: { state: Aeg
   const changes = [
     ...state.overrides.closedEdgeIds.map((id) => `road ${id} closed`),
     ...state.overrides.unavailableShelterIds.map((id) => `shelter ${id} unavailable`),
+    ...Object.entries(state.overrides.edgeCapacityFactors).map(([id, f]) => `road ${id} at ${Math.round(f * 100)}% capacity`),
   ];
 
   function exportJson() {

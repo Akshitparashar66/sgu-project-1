@@ -1,13 +1,13 @@
 from fastapi import APIRouter, Body
-from pydantic import Field, ValidationError
+from pydantic import ValidationError
 
 from app.api.errors import AegisError, validation_errors_to_fields
 from app.ml.surrogate import predict_outcome
-from app.models.schemas import CamelModel, ComparisonResult, RunResult, ScenarioConfig
+from app.models.schemas import ComparisonResult, RunResult, ScenarioConfig
 from app.optimization.planner import OptimizationRequest, generate_alternative_plan
 from app.services.comparison import CompareRequest, compare_runs
 from app.services.scenario_import import ImportRequest, ScenarioImportError, import_scenario
-from app.services.scenario_overrides import InvalidOverrideError, apply_overrides
+from app.services.scenario_overrides import InvalidOverrideError, WhatIfOverrides
 from app.services.scenario_store import get_scenario, list_scenarios
 from app.services.weak_points import weak_points
 from app.services.river import GaugeNotFound, ReadingRequest, ThresholdsRequest, add_reading, river_status, set_thresholds
@@ -115,12 +115,10 @@ def compare(request: CompareRequest) -> ComparisonResult:
 
 
 
-class PredictRequest(CamelModel):
+class PredictRequest(WhatIfOverrides):
     scenario_id: str
     # Same seed as the run being estimated; the scenario default when omitted.
     random_seed: int | None = None
-    closed_edge_ids: list[str] = Field(default_factory=list)
-    unavailable_shelter_ids: list[str] = Field(default_factory=list)
 
 
 @router.post("/predict")
@@ -132,17 +130,15 @@ def predict(request: PredictRequest) -> dict:
     if scenario is None:
         raise _scenario_not_found(request.scenario_id)
     try:
-        scenario = apply_overrides(scenario, request.closed_edge_ids, request.unavailable_shelter_ids)
+        scenario = request.apply_to(scenario)
     except InvalidOverrideError as exc:
         raise _invalid_override(exc) from exc
     return predict_outcome(scenario, request.random_seed)
 
 
-class WeakPointsRequest(CamelModel):
+class WeakPointsRequest(WhatIfOverrides):
     scenario_id: str
     random_seed: int | None = None
-    closed_edge_ids: list[str] = Field(default_factory=list)
-    unavailable_shelter_ids: list[str] = Field(default_factory=list)
 
 
 @router.post("/analysis/weak-points")
@@ -152,7 +148,7 @@ def analyse_weak_points(request: WeakPointsRequest) -> dict:
     if scenario is None:
         raise _scenario_not_found(request.scenario_id)
     try:
-        scenario = apply_overrides(scenario, request.closed_edge_ids, request.unavailable_shelter_ids)
+        scenario = request.apply_to(scenario)
     except InvalidOverrideError as exc:
         raise _invalid_override(exc) from exc
     params = scenario.default_params
